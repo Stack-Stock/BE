@@ -1,4 +1,4 @@
-package com.stacknstock.backend.domain.Test;
+package com.stacknstock.backend.domain.test;
 
 import jakarta.persistence.*;
 
