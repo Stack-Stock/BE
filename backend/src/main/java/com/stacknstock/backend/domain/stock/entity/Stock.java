@@ -4,8 +4,6 @@ import com.stacknstock.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "stocks")
 @Getter
