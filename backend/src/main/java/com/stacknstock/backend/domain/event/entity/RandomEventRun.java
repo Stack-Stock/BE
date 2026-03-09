@@ -17,22 +17,24 @@ public class RandomEventRun extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "rer_id")
     private Long rerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "run_id")
+    @JoinColumn(name = "run_id", nullable = false)
     private GameRun run;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "day_id")
+    @JoinColumn(name = "day_id", nullable = false)
     private Day day;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id")
+    @JoinColumn(name = "event_id", nullable = false)
     private RandomEvent event;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "result_json", columnDefinition = "jsonb")
     private String resultJson;
 
+    @Column(name = "cash_delta")
     private BigDecimal cashDelta;
 }

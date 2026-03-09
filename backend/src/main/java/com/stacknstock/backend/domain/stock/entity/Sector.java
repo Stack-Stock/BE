@@ -12,7 +12,9 @@ public class Sector extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "sector_id")
     private Long sectorId;
 
+    @Column(name = "name", nullable = false)
     private String name;
 }

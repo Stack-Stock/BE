@@ -14,15 +14,19 @@ public class RandomEvent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "event_id")
     private Long eventId;
 
+    @Column(name = "event_name", nullable = false)
     private String eventName;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "event_content", columnDefinition = "jsonb")
     private String eventContent;
 
+    @Column(name = "event_probability", nullable = false)
     private BigDecimal eventProbability;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "event_type", nullable = false)
     private EventType eventType;
 }

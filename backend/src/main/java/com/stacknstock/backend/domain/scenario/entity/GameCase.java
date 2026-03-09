@@ -15,32 +15,32 @@ public class GameCase {
     @Column(name = "case_id")
     private Long caseId;
 
-    @Column(nullable = false, length = 200)
+    @Column(name = "story", nullable = false, length = 200)
     private String story;
 
     @Lob
-    @Column(nullable = false)
+    @Column(name = "phone", nullable = false)
     private String phone;
 
     @Lob
-    @Column(nullable = false)
+    @Column(name = "tv", nullable = false)
     private String tv;
 
     @Lob
-    @Column(nullable = false)
+    @Column(name = "newspaper", nullable = false)
     private String newspaper;
 
-    @Column(name = "article_json", columnDefinition = "json")
+    @Column(name = "article_json", columnDefinition = "jsonb")
     private String articleJson;
 
     @Lob
-    @Column(nullable = false)
+    @Column(name = "reason", nullable = false)
     private String reason;
 
-    @Column(name = "up_down_json", columnDefinition = "json", nullable = false)
+    @Column(name = "up_down_json", columnDefinition = "jsonb", nullable = false)
     private String upDownJson;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stock_id")
-    private Stock stock;
+    @JoinColumn(name = "stock_id", nullable = false)
+    private Stock stock; // 관련 종목 ID
 }

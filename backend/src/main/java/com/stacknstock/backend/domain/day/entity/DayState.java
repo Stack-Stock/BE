@@ -1,6 +1,5 @@
 package com.stacknstock.backend.domain.day.entity;
 
-import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.global.entity.SnapshotEntity;
 import jakarta.persistence.*;
 import lombok.Getter;

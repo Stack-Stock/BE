@@ -13,19 +13,25 @@ public class Day extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "day_id")
     private Long dayId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "run_id")
+    @JoinColumn(name = "run_id", nullable = false)
     private GameRun gameRun;
 
+    @Column(name = "day_no", nullable = false)
     private Integer dayNo;
 
-    private Integer ap_base;
+    @Column(name = "ap_base", nullable = false)
+    private Integer apBase;
 
-    private Integer ap_used;
+    @Column(name = "ap_used", nullable = false)
+    private Boolean apUsed;
 
-    private Boolean inspiration_used;
+    @Column(name = "inspiration_used", nullable = false)
+    private Boolean inspirationUsed;
 
-    private Boolean is_sleep_done;
+    @Column(name = "is_sleep_done", nullable = false)
+    private Boolean isSleepDone;
 }
