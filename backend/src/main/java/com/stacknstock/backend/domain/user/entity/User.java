@@ -11,6 +11,8 @@ import java.util.List;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User extends BaseEntity {
 
     @Id
@@ -26,6 +28,12 @@ public class User extends BaseEntity {
 
     @Column(name = "password", nullable = false)
     private String password;
+
+    public User(String email, String nickname, String password) {
+        this.email = email;
+        this.nickname = nickname;
+        this.password = password;
+    }
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<GameRun> gameRuns;
