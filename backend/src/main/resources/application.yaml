@@ -2,10 +2,8 @@ spring:
   application:
     name: Stack&Stock
 
-  datasource:
-    url: jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres?user=postgres.pypgoiqcixfwchkuoinw&password=stackstock0320
-    username: postgres.pypgoiqcixfwchkuoinw
-    password: stackstock0320
+  profiles:
+    active: local
 
   jpa:
     hibernate:
