@@ -1,7 +1,6 @@
 package com.stacknstock.backend.global.config;
 
 import com.stacknstock.backend.domain.user.service.CustomUserDetailsService;
-import com.stacknstock.backend.domain.user.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.Customizer;
