@@ -1,4 +1,4 @@
-package com.stacknstock.backend.domain.user.service;
+package com.stacknstock.backend.global.security;
 
 import com.stacknstock.backend.domain.user.entity.User;
 import com.stacknstock.backend.domain.user.repository.UserRepository;
