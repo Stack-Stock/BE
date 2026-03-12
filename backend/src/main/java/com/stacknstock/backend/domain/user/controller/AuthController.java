@@ -49,7 +49,7 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인합니다.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "로그인 성공 (Session 생성)"),
+            @ApiResponse(responseCode = "204", description = "로그인 성공 (Session 생성)"),
             @ApiResponse(responseCode = "401", description = "아이디 또는 비밀번호 오류")
     })
     public ResponseEntity<Void> login(
@@ -68,9 +68,10 @@ public class AuthController {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        // session 생성
         httpRequest.getSession(true);
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout")
