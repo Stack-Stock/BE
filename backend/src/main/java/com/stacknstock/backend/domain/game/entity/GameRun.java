@@ -36,4 +36,14 @@ public class GameRun extends BaseEntity {
 
     @Column(name = "start_cash", nullable = false)
     private BigDecimal startCash;
+
+    // GameRun 새로 생성하기
+    public static GameRun create(User user, RunStatus status, java.math.BigDecimal startCash) {
+        GameRun gameRun = new GameRun();
+        gameRun.user = user;
+        gameRun.status = status;
+        gameRun.startCash = startCash;
+        gameRun.startAt = java.time.LocalDateTime.now();
+        return gameRun;
+    }
 }

@@ -28,4 +28,15 @@ public class DayState extends SnapshotEntity {
 
     @Column(name = "today_summary", columnDefinition = "jsonb")
     private String todaySummary;
+
+    // 새로운 일차 상태 스냅샷 생성
+    public static DayState create(Day day, Integer apRemaining, Integer studyCount) {
+        DayState dayState = new DayState();
+        dayState.day = day;
+        dayState.dayId = day.getDayId();
+        dayState.apRemaining = apRemaining;
+        dayState.studyCount = studyCount;
+        dayState.todaySummary = null;
+        return dayState;
+    }
 }
