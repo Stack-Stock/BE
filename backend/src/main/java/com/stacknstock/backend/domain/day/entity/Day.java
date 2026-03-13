@@ -27,11 +27,23 @@ public class Day extends BaseEntity {
     private Integer apBase;
 
     @Column(name = "ap_used", nullable = false)
-    private Boolean apUsed;
+    private Integer apUsed;
 
     @Column(name = "inspiration_used", nullable = false)
     private Boolean inspirationUsed;
 
     @Column(name = "is_sleep_done", nullable = false)
     private Boolean isSleepDone;
+
+    // N일차 기록 생성
+    public static Day create(GameRun gameRun, Integer dayNo, Integer apBase) {
+        Day day = new Day();
+        day.gameRun = gameRun;
+        day.dayNo = dayNo;
+        day.apBase = apBase;
+        day.apUsed = 0;
+        day.inspirationUsed = false;
+        day.isSleepDone = false;
+        return day;
+    }
 }

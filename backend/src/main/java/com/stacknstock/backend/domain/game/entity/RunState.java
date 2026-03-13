@@ -32,4 +32,16 @@ public class RunState extends SnapshotEntity {
 
     @Column(name = "last_action_id")
     private Long lastActionId;
+
+    // 새로운 RunState 스냅샷 생성
+    public static RunState create(GameRun run, Integer currentDayNo, java.math.BigDecimal cashBalance, Integer inspirationCount) {
+        RunState runState = new RunState();
+        runState.run = run;
+        runState.runId = run.getRunId();
+        runState.currentDayNo = currentDayNo;
+        runState.cashBalance = cashBalance;
+        runState.inspirationCount = inspirationCount;
+        runState.lastActionId = null;
+        return runState;
+    }
 }
