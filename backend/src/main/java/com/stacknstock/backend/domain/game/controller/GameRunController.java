@@ -1,5 +1,6 @@
 package com.stacknstock.backend.domain.game.controller;
 
+import com.stacknstock.backend.domain.game.dto.ContinueRunResponse;
 import com.stacknstock.backend.domain.game.dto.StartGameResponse;
 import com.stacknstock.backend.domain.game.service.GameRunService;
 import com.stacknstock.backend.global.security.CustomUserDetails;
@@ -19,7 +20,7 @@ public class GameRunController {
 
     private final GameRunService gameRunService;
 
-    @PostMapping
+    @PostMapping("/new")
     @Operation(summary = "새 게임 시작", description = "현재 로그인한 사용자의 새 게임을 시작합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "새 게임 시작 성공"),
@@ -32,6 +33,22 @@ public class GameRunController {
         StartGameResponse response = gameRunService.startGame(
                 userDetails.getUser().getUserId()
         );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/continue")
+    @Operation(summary = "이어하기", description = "현재 진행 중인 게임을 이어서 시작합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "게임 이어하기 성공"),
+            @ApiResponse(responseCode = "404", description = "진행 중인 게임 없음")
+    })
+    public ResponseEntity<ContinueRunResponse> continueRun(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        ContinueRunResponse response =
+                gameRunService.continueRun(userDetails.getUser().getUserId());
 
         return ResponseEntity.ok(response);
     }

@@ -4,6 +4,7 @@ import com.stacknstock.backend.domain.day.entity.Day;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
+import com.stacknstock.backend.domain.game.dto.ContinueRunResponse;
 import com.stacknstock.backend.domain.game.dto.StartGameResponse;
 import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.domain.game.entity.RunState;
@@ -62,6 +63,39 @@ public class GameRunService {
         dayStateRepository.save(dayState);
 
         return new StartGameResponse(
+                gameRun.getRunId(),
+                day.getDayNo(),
+                runState.getCashBalance().longValue(),
+                dayState.getApRemaining()
+        );
+    }
+
+    /*
+    진행 중인 게임 정보 가져오기
+     */
+    @Transactional(readOnly = true)
+    public ContinueRunResponse continueRun(Long userId) {
+
+        GameRun gameRun = gameRunRepository
+                .findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
+                .orElseThrow(() -> new IllegalArgumentException("진행 중인 게임이 없습니다."));
+
+        RunState runState = runStateRepository
+                .findByRunRunId(gameRun.getRunId())
+                .orElseThrow(() -> new IllegalStateException("RunState가 없습니다."));
+
+        Day day = dayRepository
+                .findByGameRunRunIdAndDayNo(
+                        gameRun.getRunId(),
+                        runState.getCurrentDayNo()
+                )
+                .orElseThrow(() -> new IllegalStateException("Day가 없습니다."));
+
+        DayState dayState = dayStateRepository
+                .findById(day.getDayId())
+                .orElseThrow(() -> new IllegalStateException("DayState가 없습니다."));
+
+        return new ContinueRunResponse(
                 gameRun.getRunId(),
                 day.getDayNo(),
                 runState.getCashBalance().longValue(),
