@@ -1,6 +1,7 @@
 package com.stacknstock.backend.domain.game.controller;
 
 import com.stacknstock.backend.domain.game.dto.ContinueRunResponse;
+import com.stacknstock.backend.domain.game.dto.PortfolioResponse;
 import com.stacknstock.backend.domain.game.dto.StartGameResponse;
 import com.stacknstock.backend.domain.game.service.GameRunService;
 import com.stacknstock.backend.global.security.CustomUserDetails;
@@ -49,6 +50,30 @@ public class GameRunController {
 
         ContinueRunResponse response =
                 gameRunService.continueRun(userDetails.getUser().getUserId());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 현재 진행 중인 게임의 포트폴리오를 조회한다.
+     */
+    @GetMapping("/current/portfolio")
+    @Operation(
+            summary = "현재 포트폴리오 조회",
+            description = "현재 로그인한 사용자의 진행 중인 게임 포트폴리오를 조회합니다."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "포트폴리오 조회 성공"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+            @ApiResponse(responseCode = "404", description = "진행 중인 게임이 없음")
+    })
+    public ResponseEntity<PortfolioResponse> getCurrentPortfolio(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        PortfolioResponse response = gameRunService.getCurrentPortfolio(
+                userDetails.getUser().getUserId()
+        );
 
         return ResponseEntity.ok(response);
     }
