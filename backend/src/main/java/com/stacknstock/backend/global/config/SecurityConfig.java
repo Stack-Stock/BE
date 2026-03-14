@@ -50,7 +50,8 @@ public class SecurityConfig {
                                 SessionCreationPolicy.IF_REQUIRED
                         )
                 )
-
+                .securityContext(securityContext ->
+                        securityContext.requireExplicitSave(false))
                 .userDetailsService(userDetailsService);
 
         return http.build();
