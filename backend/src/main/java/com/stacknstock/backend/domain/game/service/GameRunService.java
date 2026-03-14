@@ -5,12 +5,18 @@ import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
 import com.stacknstock.backend.domain.game.dto.ContinueRunResponse;
+import com.stacknstock.backend.domain.game.dto.PortfolioResponse;
+import com.stacknstock.backend.domain.game.dto.PortfolioStockResponse;
 import com.stacknstock.backend.domain.game.dto.StartGameResponse;
 import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.domain.game.entity.RunState;
 import com.stacknstock.backend.domain.game.enums.RunStatus;
 import com.stacknstock.backend.domain.game.repository.GameRunRepository;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
+import com.stacknstock.backend.domain.stock.entity.StockPrice;
+import com.stacknstock.backend.domain.stock.repository.StockPriceRepository;
+import com.stacknstock.backend.domain.trade.entity.Holding;
+import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
 import com.stacknstock.backend.domain.user.entity.User;
 import com.stacknstock.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,8 +42,10 @@ public class GameRunService {
     private final DayRepository dayRepository;
     private final DayStateRepository dayStateRepository;
     private final UserRepository userRepository;
+    private final HoldingRepository holdingRepository;
+    private final StockPriceRepository stockPriceRepository;
 
-    /*
+    /**
     새 게임 런 시작하기
      */
     @Transactional
@@ -70,7 +80,7 @@ public class GameRunService {
         );
     }
 
-    /*
+    /**
     진행 중인 게임 정보 가져오기
      */
     @Transactional(readOnly = true)
@@ -100,6 +110,99 @@ public class GameRunService {
                 day.getDayNo(),
                 runState.getCashBalance().longValue(),
                 dayState.getApRemaining()
+        );
+    }
+
+
+    /**
+     * 현재 로그인한 사용자의 진행 중인 게임 포트폴리오를 조회한다.
+     *
+     * 처리 순서
+     * 1. RUNNING 상태의 GameRun 조회
+     * 2. RunState 조회 (현재 day, 현금)
+     * 3. Holding 목록 조회
+     * 4. 각 Holding에 대해 현재가 조회
+     * 5. 평가금액 / 손익 계산
+     * 6. 총 자산 계산 후 응답 DTO 반환
+     */
+    @Transactional(readOnly = true)
+    public PortfolioResponse getCurrentPortfolio(Long userId) {
+
+        // 1) 현재 진행 중인 게임 조회
+        GameRun gameRun = gameRunRepository.findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
+                .orElseThrow(() -> new IllegalArgumentException("진행 중인 게임이 없습니다."));
+
+        // 2) 현재 게임 상태 조회
+        RunState runState = runStateRepository.findByRunRunId(gameRun.getRunId())
+                .orElseThrow(() -> new IllegalStateException("RunState가 존재하지 않습니다."));
+
+        // 3) 현재 게임의 보유 주식 목록 조회
+        List<Holding> holdings = holdingRepository.findByRunRunId(gameRun.getRunId());
+
+        List<PortfolioStockResponse> holdingResponses = new ArrayList<>();
+
+        // 총 평가 금액(현금 제외)
+        long totalEvaluationAmount = 0L;
+
+        // 4) Holding마다 현재가를 조회하고 응답 데이터 생성
+        for (Holding holding : holdings) {
+
+            StockPrice stockPrice = stockPriceRepository.findByRunRunIdAndStockStockIdAndBaseDate(
+                            gameRun.getRunId(),
+                            holding.getStock().getStockId(),
+                            runState.getCurrentDayNo()
+                    )
+                    .orElseThrow(() -> new IllegalStateException("현재 주가 정보를 찾을 수 없습니다."));
+
+            /*
+             * 현재 설계상 closePrice가 jsonb(String)으로 되어 있기 때문에
+             * 우선 단순 숫자 문자열이라고 가정하고 파싱합니다.
+             *
+             * 주의:
+             * 실제 close_price 컬럼 구조가 {"closePrice":12000} 같은 JSON이라면
+             * 이 부분은 이후 JSON 파싱 로직으로 바꿔야 합니다.
+             */
+
+            // TODO
+            // stock_price DB close_price 자료형 확인 필요
+            long currentPrice = Long.parseLong(stockPrice.getClosePrice());
+
+            long quantity = holding.getQty().longValue();
+            long avgCost = holding.getAvgCost().longValue();
+
+            // 평가 금액 = 현재가 * 수량
+            long evaluationAmount = currentPrice * quantity;
+
+            // 평가 손익 = (현재가 - 평균단가) * 수량
+            long profitLoss = (currentPrice - avgCost) * quantity;
+
+            totalEvaluationAmount += evaluationAmount;
+
+            holdingResponses.add(
+                    new PortfolioStockResponse(
+                            holding.getStock().getStockId(),
+                            holding.getStock().getTicker(),
+                            holding.getStock().getCompanyName(),
+                            quantity,
+                            avgCost,
+                            currentPrice,
+                            evaluationAmount,
+                            profitLoss
+                    )
+            );
+        }
+
+        // 5) 총 자산 = 현금 + 보유 종목 평가금액
+        long cashBalance = runState.getCashBalance().longValue();
+        long totalAssetValue = cashBalance + totalEvaluationAmount;
+
+        // 6) 최종 응답
+        return new PortfolioResponse(
+                gameRun.getRunId(),
+                runState.getCurrentDayNo(),
+                cashBalance,
+                totalAssetValue,
+                holdingResponses
         );
     }
 }
