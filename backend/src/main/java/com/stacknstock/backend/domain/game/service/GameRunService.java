@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -139,29 +141,42 @@ public class GameRunService {
         // 3) 현재 게임의 보유 주식 목록 조회
         List<Holding> holdings = holdingRepository.findByRunRunId(gameRun.getRunId());
 
+        /*
+         * N+1 문제 방지
+         * 기존 방식: holding 수만큼 StockPrice 조회 쿼리가 발생
+         * 해결 방식: 현재 run + day 기준 모든 StockPrice를 한 번에 조회
+         */
+
+        List<Long> stockIds = holdings.stream()
+                .map(h -> h.getStock().getStockId())
+                .toList();
+
+        List<StockPrice> prices = stockPriceRepository
+                .findByRunRunIdAndBaseDateAndStockStockIdIn(
+                        gameRun.getRunId(),
+                        runState.getCurrentDayNo(),
+                        stockIds
+                );
+
+        /* stockId → price 매핑 */
+        Map<Long, StockPrice> priceMap = prices.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getStock().getStockId(),
+                        p -> p
+                ));
+
         List<PortfolioStockResponse> holdingResponses = new ArrayList<>();
 
         // 총 평가 금액(현금 제외)
         long totalEvaluationAmount = 0L;
 
-        // 4) Holding마다 현재가를 조회하고 응답 데이터 생성
         for (Holding holding : holdings) {
 
-            StockPrice stockPrice = stockPriceRepository.findByRunRunIdAndStockStockIdAndBaseDate(
-                            gameRun.getRunId(),
-                            holding.getStock().getStockId(),
-                            runState.getCurrentDayNo()
-                    )
-                    .orElseThrow(() -> new IllegalStateException("현재 주가 정보를 찾을 수 없습니다."));
+            StockPrice stockPrice = priceMap.get(holding.getStock().getStockId());
 
-            /*
-             * 현재 설계상 closePrice가 jsonb(String)으로 되어 있기 때문에
-             * 우선 단순 숫자 문자열이라고 가정하고 파싱합니다.
-             *
-             * 주의:
-             * 실제 close_price 컬럼 구조가 {"closePrice":12000} 같은 JSON이라면
-             * 이 부분은 이후 JSON 파싱 로직으로 바꿔야 합니다.
-             */
+            if (stockPrice == null) {
+                throw new IllegalStateException("현재 주가 정보를 찾을 수 없습니다.");
+            }
 
             // TODO
             // stock_price DB close_price 자료형 확인 필요
