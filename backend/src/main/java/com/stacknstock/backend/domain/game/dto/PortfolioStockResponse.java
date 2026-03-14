@@ -1,6 +1,7 @@
 package com.stacknstock.backend.domain.game.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 
 @Schema(description = "포트폴리오 내 개별 보유 종목 정보")
 public record PortfolioStockResponse(
@@ -18,16 +19,16 @@ public record PortfolioStockResponse(
         Long quantity,
 
         @Schema(description = "평균 단가", example = "10000")
-        Long avgCost,
+        BigDecimal avgCost,
 
         @Schema(description = "현재가", example = "12000")
-        Long currentPrice,
+        BigDecimal currentPrice,
 
         @Schema(description = "평가 금액", example = "120000")
-        Long evaluationAmount,
+        BigDecimal evaluationAmount,
 
         @Schema(description = "평가 손익", example = "20000")
-        Long profitLoss
+        BigDecimal profitLoss
 
 ) {
 }

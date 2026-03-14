@@ -168,7 +168,7 @@ public class GameRunService {
         List<PortfolioStockResponse> holdingResponses = new ArrayList<>();
 
         // 총 평가 금액(현금 제외)
-        long totalEvaluationAmount = 0L;
+        BigDecimal totalEvaluationAmount = BigDecimal.ZERO;
 
         for (Holding holding : holdings) {
 
@@ -178,20 +178,20 @@ public class GameRunService {
                 throw new IllegalStateException("현재 주가 정보를 찾을 수 없습니다.");
             }
 
-            // TODO
-            // stock_price DB close_price 자료형 확인 필요
-            long currentPrice = Long.parseLong(stockPrice.getClosePrice());
+            BigDecimal currentPrice = stockPrice.getClosePrice();
 
-            long quantity = holding.getQty().longValue();
-            long avgCost = holding.getAvgCost().longValue();
+            Long quantity = holding.getQty();
+            BigDecimal avgCost = holding.getAvgCost();
 
             // 평가 금액 = 현재가 * 수량
-            long evaluationAmount = currentPrice * quantity;
+            BigDecimal evaluationAmount = currentPrice.multiply(BigDecimal.valueOf(quantity));
 
             // 평가 손익 = (현재가 - 평균단가) * 수량
-            long profitLoss = (currentPrice - avgCost) * quantity;
+            BigDecimal profitLoss =
+                    currentPrice.subtract(avgCost)
+                            .multiply(BigDecimal.valueOf(quantity));
 
-            totalEvaluationAmount += evaluationAmount;
+            totalEvaluationAmount = totalEvaluationAmount.add(evaluationAmount);
 
             holdingResponses.add(
                     new PortfolioStockResponse(
@@ -209,7 +209,7 @@ public class GameRunService {
 
         // 5) 총 자산 = 현금 + 보유 종목 평가금액
         long cashBalance = runState.getCashBalance().longValue();
-        long totalAssetValue = cashBalance + totalEvaluationAmount;
+        long totalAssetValue = cashBalance + totalEvaluationAmount.longValue();
 
         // 6) 최종 응답
         return new PortfolioResponse(
