@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @NoArgsConstructor
@@ -28,9 +30,9 @@ public class StockPrice extends BaseEntity {
     @Column(name = "base_date", nullable = false)
     private Integer baseDate;
 
-    @Column(name = "close_price", columnDefinition = "jsonb", nullable = false)
-    private String closePrice;
+    @Column(name = "close_price", nullable = false, precision = 18, scale = 4)
+    private BigDecimal closePrice;
 
-    @Column(name = "return_pct", columnDefinition = "jsonb", nullable = false)
-    private String returnPct;
+    @Column(name = "return_pct", nullable = false, precision = 18, scale = 4)
+    private BigDecimal returnPct;
 }

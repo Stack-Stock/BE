@@ -36,7 +36,7 @@ public class Holding extends SnapshotEntity {
     private Stock stock;
 
     @Column(name = "qty", nullable = false)
-    private BigDecimal qty;
+    private Long qty;
 
     @Column(name = "avg_cost", nullable = false)
     private BigDecimal avgCost;
