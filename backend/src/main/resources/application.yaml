@@ -2,6 +2,10 @@ spring:
   application:
     name: Stack&Stock
 
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+
   profiles:
     active: local
 

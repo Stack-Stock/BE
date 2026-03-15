@@ -35,4 +35,19 @@ public class Action extends BaseEntity {
 
     @Column(name = "meta", columnDefinition = "jsonb")
     private String meta;
+
+    @Builder
+    public Action(
+            Day day,
+            GameRun run,
+            ActionType actionType,
+            Integer apCost,
+            String meta
+    ) {
+        this.day = day;
+        this.run = run;
+        this.actionType = actionType;
+        this.apCost = apCost;
+        this.meta = meta;
+    }
 }
