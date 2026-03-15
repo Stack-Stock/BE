@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Action", description = "게임 내 행동 실행 API")
+@Tag(name = "행동", description = "게임 내 행동 실행 API")
 @RestController
 @RequestMapping("/api/actions")
 @RequiredArgsConstructor

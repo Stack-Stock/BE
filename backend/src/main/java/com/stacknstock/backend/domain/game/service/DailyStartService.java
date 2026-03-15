@@ -2,6 +2,9 @@ package com.stacknstock.backend.domain.game.service;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.stacknstock.backend.domain.day.entity.DayState;
+import com.stacknstock.backend.domain.day.repository.DayStateRepository;
 import com.stacknstock.backend.domain.game.dto.ArticleJsonDto;
 import com.stacknstock.backend.domain.trade.dto.PricePointResponse;
 import com.stacknstock.backend.domain.game.dto.ArticleArchiveResponse;
@@ -38,6 +41,7 @@ public class DailyStartService {
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
     private final TradeRepository tradeRepository;
+    private final DayStateRepository dayStateRepository;
 
     /** JSON 파싱을 위한 Jackson ObjectMapper */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -69,10 +73,20 @@ public class DailyStartService {
          * 번뜩임 지급 로직
          * 공부 3회마다 번뜩임 지급
          */
+        DayState today = dayStateRepository
+                .findByDayGameRunRunIdAndDayDayNo(runId, dayNo)
+                .orElseThrow();
+
+        DayState yesterday = dayStateRepository
+                .findByDayGameRunRunIdAndDayDayNo(runId, dayNo - 1)
+                .orElse(null);
+
         boolean hasInspiration = false;
 
-        if (runState.getTotalStudyCnt() != 0 &&
-                runState.getTotalStudyCnt() % 3 == 0) {
+        if (yesterday != null
+                && yesterday.getStudyDone()
+                && !today.getStudyDone()
+                && runState.getTotalStudyCnt() % 3 == 0) {
 
             runState.setInspirationCount(
                     runState.getInspirationCount() + 1

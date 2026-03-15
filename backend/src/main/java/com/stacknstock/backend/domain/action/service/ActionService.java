@@ -135,6 +135,9 @@ public class ActionService {
 
         dayState.setApRemaining(dayState.getApRemaining() - apCost);
 
+        /* DayState 스냅샷 저장 */
+        dayStateRepository.save(dayState);
+
         ScenarioDay scenarioDay = scenarioDayRepository
                 .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
                 .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
@@ -184,6 +187,9 @@ public class ActionService {
         }
 
         dayState.setApRemaining(dayState.getApRemaining() - apCost);
+
+        /* DayState 스냅샷 저장 */
+        dayStateRepository.save(dayState);
 
         ScenarioDay scenarioDay = scenarioDayRepository
                 .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
@@ -244,6 +250,9 @@ public class ActionService {
 
         dayState.setStudyDone(true);
 
+        /* DayState 스냅샷 저장 */
+        dayStateRepository.save(dayState);
+
         /* 행동 로그 저장 */
         Action action = Action.builder()
                 .day(day)
@@ -265,6 +274,7 @@ public class ActionService {
     }
 
     /**
+     * TODO
      * 매수
      */
     private ActionResultResponse executeBuy(RunState runState, DayState dayState, ActionRequest request) {
@@ -277,6 +287,7 @@ public class ActionService {
     }
 
     /**
+     * TODO
      * 매도
      */
     private ActionResultResponse executeSell(RunState runState, DayState dayState, ActionRequest request) {
@@ -292,11 +303,34 @@ public class ActionService {
      * 잠 자기
      */
     private ActionResultResponse executeSleep(RunState runState, DayState dayState) {
+
+        /* 다음 날로 이동 */
+        int nextDay = runState.getCurrentDayNo() + 1;
+        runState.setCurrentDayNo(nextDay);
+
+        /* RunState 스냅샷 저장 */
+        runStateRepository.save(runState);
+
+        /* 다음 Day 조회 */
+        Day nextDayEntity = dayRepository
+                .findByGameRunRunIdAndDayNo(runState.getRun().getRunId(), nextDay)
+                .orElseThrow(() -> new IllegalStateException("다음 Day가 존재하지 않습니다."));
+
+        /* 다음 DayState 초기화 */
+        DayState nextDayState = dayStateRepository
+                .findById(nextDayEntity.getDayId())
+                .orElseThrow(() -> new IllegalStateException("DayState가 존재하지 않습니다."));
+
+        nextDayState.setApRemaining(3);
+        nextDayState.setStudyDone(false);
+
+        dayStateRepository.save(nextDayState);
+
         return new ActionResultResponse(
                 runState.getCurrentDayNo(),
-                dayState.getApRemaining(),
+                nextDayState.getApRemaining(),
                 runState.getCashBalance(),
-                "SLEEP 로직은 다음 단계에서 구현합니다."
+                "다음 날로 이동했습니다."
         );
     }
 }

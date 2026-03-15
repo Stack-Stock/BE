@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/runs")
-@Tag(name = "Game - Daily Start", description = "게임 하루 시작 API")
+@Tag(name = "인게임 하루 시작", description = "게임 하루 시작 API")
 public class DailyStartController {
 
     private final DailyStartService dailyStartService;
