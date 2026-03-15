@@ -4,9 +4,11 @@ import com.stacknstock.backend.global.entity.SnapshotEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Getter
+@Setter
 @NoArgsConstructor
 @Table(name = "day_state")
 public class DayState extends SnapshotEntity {
