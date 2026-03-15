@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "run_state")
 @Getter
+@Setter
 @NoArgsConstructor
 public class RunState extends SnapshotEntity {
 

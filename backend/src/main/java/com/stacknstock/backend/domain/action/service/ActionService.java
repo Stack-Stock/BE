@@ -237,8 +237,12 @@ public class ActionService {
         /* AP 차감 */
         dayState.setApRemaining(dayState.getApRemaining() - apCost);
 
-        /* 공부 횟수 증가 */
-        dayState.setStudyCount(dayState.getStudyCount() + 1);
+        /* 공부 여부 기록 (이제 DayState는 studied Boolean 필드를 사용한다) */
+        if (Boolean.TRUE.equals(dayState.getStudyDone())) {
+            throw new IllegalStateException("오늘은 이미 공부했습니다.");
+        }
+
+        dayState.setStudyDone(true);
 
         /* 행동 로그 저장 */
         Action action = Action.builder()
