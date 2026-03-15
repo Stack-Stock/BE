@@ -34,10 +34,10 @@ import java.util.stream.Collectors;
 public class GameRunService {
 
     private static final BigDecimal INITIAL_CASH = BigDecimal.valueOf(3_000_000L); // 초기 자본
-    private static final int INITIAL_DAY_NO = 1; // 시작 일차
-    private static final int INITIAL_AP = 2; // 기본 AP
-    private static final int INITIAL_STUDY_COUNT = 0; // 초기 공부 횟수
-    private static final int INITIAL_INSPIRATION_COUNT = 0; // 초기 번뜩임 개수
+    private static final Integer INITIAL_DAY_NO = 1; // 시작 일차
+    private static final Integer INITIAL_AP = 2; // 기본 AP
+    private static final Integer INITIAL_STUDY_COUNT = 0; // 초기 공부 횟수
+    private static final Integer INITIAL_INSPIRATION_COUNT = 0; // 초기 번뜩임 개수
 
     private final GameRunRepository gameRunRepository;
     private final RunStateRepository runStateRepository;
@@ -63,7 +63,8 @@ public class GameRunService {
                 gameRun,
                 INITIAL_DAY_NO,
                 INITIAL_CASH,
-                INITIAL_INSPIRATION_COUNT
+                INITIAL_INSPIRATION_COUNT,
+                INITIAL_STUDY_COUNT
         );
         runStateRepository.save(runState);
 
@@ -71,7 +72,11 @@ public class GameRunService {
         Day day = Day.create(gameRun, INITIAL_DAY_NO, INITIAL_AP);
         dayRepository.save(day);
 
-        DayState dayState = DayState.create(day, INITIAL_AP, INITIAL_STUDY_COUNT);
+        /**
+         * DayState는 이제 studyCount 대신 studied(Boolean) 필드를 사용한다.
+         * 새 게임 시작 시 아직 공부하지 않았으므로 false로 초기화한다.
+         */
+        DayState dayState = DayState.create(day, INITIAL_AP, false);
         dayStateRepository.save(dayState);
 
         return new StartGameResponse(
@@ -207,17 +212,27 @@ public class GameRunService {
             );
         }
 
-        // 5) 총 자산 = 현금 + 보유 종목 평가금액
-        long cashBalance = runState.getCashBalance().longValue();
-        long totalAssetValue = cashBalance + totalEvaluationAmount.longValue();
+        /**
+         * 총 자산 계산
+         * 총 자산 = 현금 + 보유 종목 평가금
+         */
+        BigDecimal cashBalance = runState.getCashBalance();
+        BigDecimal totalAssetValue = cashBalance.add(totalEvaluationAmount);
 
-        // 6) 최종 응답
+        /**
+         * 거래 로그는 현재 포트폴리오 API에서는 비어있는 리스트로 반환
+         * (추후 TradeRepository 조회로 확장 가능)
+         */
+        List<com.stacknstock.backend.domain.trade.dto.TradeLogResponse> tradeLogs = List.of();
+
+        /** 최종 응답 반환 */
         return new PortfolioResponse(
                 gameRun.getRunId(),
                 runState.getCurrentDayNo(),
                 cashBalance,
                 totalAssetValue,
-                holdingResponses
+                holdingResponses,
+                tradeLogs
         );
     }
 }

@@ -16,4 +16,18 @@ public interface HoldingRepository extends JpaRepository<Holding, Long> {
     WHERE h.run.runId = :runId
     """)
     List<Holding> findByRunRunId(Long runId);
+
+    /**
+     * 현재 포트폴리오 조회
+     *
+     * Stock 정보를 fetch join 하여
+     * 종목 정보 조회 시 추가 쿼리를 방지
+     */
+    @Query("""
+    select h
+    from Holding h
+    join fetch h.stock
+    where h.run.runId = :runId
+""")
+    List<Holding> findPortfolio(Long runId);
 }

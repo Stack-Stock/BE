@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "run_state")
 @Getter
+@Setter
 @NoArgsConstructor
 public class RunState extends SnapshotEntity {
 
@@ -24,7 +25,7 @@ public class RunState extends SnapshotEntity {
     @Column(name = "current_day_no", nullable = false)
     private Integer currentDayNo;
 
-    @Column(name = "cash_balance", nullable = false)
+    @Column(name = "cash_balance", nullable = false, columnDefinition = "numeric")
     private BigDecimal cashBalance;
 
     @Column(name = "inspiration_count", nullable = false)
@@ -33,8 +34,11 @@ public class RunState extends SnapshotEntity {
     @Column(name = "last_action_id")
     private Long lastActionId;
 
+    @Column(name = "total_study_cnt", nullable = false)
+    private Integer totalStudyCnt;
+
     // 새로운 RunState 스냅샷 생성
-    public static RunState create(GameRun run, Integer currentDayNo, java.math.BigDecimal cashBalance, Integer inspirationCount) {
+    public static RunState create(GameRun run, Integer currentDayNo, java.math.BigDecimal cashBalance, Integer inspirationCount, Integer totalStudyCnt) {
         RunState runState = new RunState();
         runState.run = run;
         runState.runId = run.getRunId();
@@ -42,6 +46,7 @@ public class RunState extends SnapshotEntity {
         runState.cashBalance = cashBalance;
         runState.inspirationCount = inspirationCount;
         runState.lastActionId = null;
+        runState.totalStudyCnt = totalStudyCnt;
         return runState;
     }
 }

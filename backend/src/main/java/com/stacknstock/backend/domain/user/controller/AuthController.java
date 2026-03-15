@@ -16,7 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
-@Tag(name = "Auth", description = "회원가입 및 로그인 API")
+@Tag(name = "인증", description = "회원가입 및 로그인 API")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
