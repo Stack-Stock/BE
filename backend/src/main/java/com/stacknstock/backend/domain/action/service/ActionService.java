@@ -14,6 +14,8 @@ import com.stacknstock.backend.domain.game.entity.RunState;
 import com.stacknstock.backend.domain.game.enums.RunStatus;
 import com.stacknstock.backend.domain.game.repository.GameRunRepository;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
+import com.stacknstock.backend.domain.scenario.entity.GameCase;
+import com.stacknstock.backend.domain.scenario.entity.ScenarioDay;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,8 @@ public class ActionService {
     private final DayRepository dayRepository;
     private final DayStateRepository dayStateRepository;
     private final ActionRepository actionRepository;
+    private final com.stacknstock.backend.domain.scenario.repository.ScenarioDayRepository scenarioDayRepository;
+    private final com.stacknstock.backend.domain.scenario.repository.GameCaseRepository gameCaseRepository;
 
     /**
      * 행동 실행 진입점
@@ -52,9 +56,9 @@ public class ActionService {
         ActionType actionType = request.actionType();
 
         return switch (actionType) {
-            case INFO_PHONE -> executeInfoPhone(runState, dayState);
-            case INFO_TV -> executeInfoTv(runState, dayState);
-            case INFO_PAPER -> executeInfoPaper(runState, dayState);
+            case INFO_PHONE -> executeInfoPhone(gameRun, runState, day, dayState);
+            case INFO_TV -> executeInfoTv(gameRun, runState, day, dayState);
+            case INFO_PAPER -> executeInfoPaper(gameRun, runState, day, dayState);
             case STUDY -> executeStudy(gameRun, runState, day, dayState);
             case BUY -> executeBuy(runState, dayState, request);
             case SELL -> executeSell(runState, dayState, request);
@@ -65,37 +69,146 @@ public class ActionService {
 
     /**
      * 휴대폰 정보 보기
+     * 규칙
+     * - AP 소모 없음
+     * - 오늘의 ScenarioDay → GameCase 조회
+     * - phone 기사 반환
+     * - Action 로그 기록
      */
-    private ActionResultResponse executeInfoPhone(RunState runState, DayState dayState) {
+    private ActionResultResponse executeInfoPhone(
+            GameRun run,
+            RunState runState,
+            Day day,
+            DayState dayState
+    ) {
+
+        /* 오늘의 시나리오 조회 */
+        ScenarioDay scenarioDay = scenarioDayRepository
+                .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
+                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+
+        /* GameCase 조회 */
+        GameCase gameCase = scenarioDay.getGameCase();
+        if (gameCase == null) {
+            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+        }
+
+        /* 행동 로그 저장 (AP 소모 없음) */
+        Action action = Action.builder()
+                .day(day)
+                .run(run)
+                .actionType(ActionType.INFO_PHONE)
+                .apCost(0)
+                .meta("{\"case_id\": " + gameCase.getCaseId() + "}")
+                .build();
+
+        actionRepository.save(action);
+
         return new ActionResultResponse(
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                "INFO_PHONE 로직은 다음 단계에서 구현합니다."
+                gameCase.getPhone()
         );
     }
 
     /**
      * TV 정보 보기
+     * 규칙
+     * - AP 1 사용
+     * - 오늘의 ScenarioDay → GameCase 조회
+     * - tv 기사 반환
+     * - Action 로그 기록
      */
-    private ActionResultResponse executeInfoTv(RunState runState, DayState dayState) {
+    private ActionResultResponse executeInfoTv(
+            GameRun run,
+            RunState runState,
+            Day day,
+            DayState dayState
+    ) {
+
+        int apCost = 1;
+
+        if (dayState.getApRemaining() < apCost) {
+            throw new IllegalStateException("AP가 부족합니다.");
+        }
+
+        dayState.setApRemaining(dayState.getApRemaining() - apCost);
+
+        ScenarioDay scenarioDay = scenarioDayRepository
+                .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
+                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+
+        GameCase gameCase = scenarioDay.getGameCase();
+        if (gameCase == null) {
+            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+        }
+
+        Action action = Action.builder()
+                .day(day)
+                .run(run)
+                .actionType(ActionType.INFO_TV)
+                .apCost(apCost)
+                .meta("{\"case_id\": " + gameCase.getCaseId() + "}")
+                .build();
+
+        actionRepository.save(action);
+
         return new ActionResultResponse(
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                "INFO_TV 로직은 다음 단계에서 구현합니다."
+                gameCase.getTv()
         );
     }
 
     /**
      * 신문 정보 보기
+     * 규칙
+     * - AP 2 사용
+     * - 오늘의 ScenarioDay → GameCase 조회
+     * - newspaper 기사 반환
+     * - Action 로그 기록
      */
-    private ActionResultResponse executeInfoPaper(RunState runState, DayState dayState) {
+    private ActionResultResponse executeInfoPaper(
+            GameRun run,
+            RunState runState,
+            Day day,
+            DayState dayState
+    ) {
+
+        int apCost = 2;
+
+        if (dayState.getApRemaining() < apCost) {
+            throw new IllegalStateException("AP가 부족합니다.");
+        }
+
+        dayState.setApRemaining(dayState.getApRemaining() - apCost);
+
+        ScenarioDay scenarioDay = scenarioDayRepository
+                .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
+                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+
+        GameCase gameCase = scenarioDay.getGameCase();
+        if (gameCase == null) {
+            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+        }
+
+        Action action = Action.builder()
+                .day(day)
+                .run(run)
+                .actionType(ActionType.INFO_PAPER)
+                .apCost(apCost)
+                .meta("{\"case_id\": " + gameCase.getCaseId() + "}")
+                .build();
+
+        actionRepository.save(action);
+
         return new ActionResultResponse(
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                "INFO_PAPER 로직은 다음 단계에서 구현합니다."
+                gameCase.getNewspaper()
         );
     }
 
