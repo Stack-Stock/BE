@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ScenarioDayRepository extends JpaRepository<ScenarioDay, Long> {
@@ -16,4 +17,19 @@ public interface ScenarioDayRepository extends JpaRepository<ScenarioDay, Long> 
         and sd.dayNo = :dayNo
         """)
     Optional<ScenarioDay> findWithGameCase(@Param("runId") Long runId, @Param("dayNo") Integer dayNo);
+
+    /**
+     * 기사 아카이브 조회
+     *
+     * GameCase를 fetch join 하여
+     * N+1 문제를 방지한다.
+     */
+    @Query("""
+    select sd
+    from ScenarioDay sd
+    join fetch sd.gameCase
+    where sd.run.runId = :runId
+    and sd.dayNo <= :dayNo
+""")
+    List<ScenarioDay> findArticleArchive(Long runId, Integer dayNo);
 }
