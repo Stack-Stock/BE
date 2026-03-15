@@ -20,7 +20,10 @@ public record PortfolioResponse(
         Long totalAssetValue,
 
         @Schema(description = "보유 종목 리스트")
-        List<PortfolioStockResponse> holdings
+        List<PortfolioStockResponse> holdings,
+
+        @Schema(description = "누적 거래 로그 목록")
+        List<TradeLogResponse> trades
 
 ) {
 }

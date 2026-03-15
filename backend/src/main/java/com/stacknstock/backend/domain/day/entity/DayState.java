@@ -25,19 +25,20 @@ public class DayState extends SnapshotEntity {
     @Column(name = "ap_remaining", nullable = false)
     private Integer apRemaining;
 
-    @Column(name = "study_count", nullable = false)
-    private Integer studyCount;
+    @Column(name = "study_done", nullable = false)
+    private Boolean studyDone;
 
     @Column(name = "today_summary", columnDefinition = "jsonb")
     private String todaySummary;
 
     // 새로운 일차 상태 스냅샷 생성
-    public static DayState create(Day day, Integer apRemaining, Integer studyCount) {
+    public static DayState create(Day day, Integer apRemaining, Boolean studyDone
+    ) {
         DayState dayState = new DayState();
         dayState.day = day;
         dayState.dayId = day.getDayId();
         dayState.apRemaining = apRemaining;
-        dayState.studyCount = studyCount;
+        dayState.studyDone = studyDone;
         dayState.todaySummary = null;
         return dayState;
     }
