@@ -10,4 +10,13 @@ public interface RunStateRepository extends JpaRepository<RunState, Long> {
     // RunId로 게임런 찾기
     Optional<RunState> findByRunRunId(Long runId);
 
+    /**
+     * 유저 기준 현재 RunState 조회
+     *
+     * RunState
+     *  -> run
+     *      -> user
+     *          -> userId
+     */
+    Optional<RunState> findByRunUserUserId(Long userId);
 }

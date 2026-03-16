@@ -20,6 +20,9 @@ import java.time.LocalDateTime;
         }
 )
 @Getter
+@Setter
+@AllArgsConstructor
+@Builder
 @NoArgsConstructor
 public class Trade extends BaseEntity {
 
