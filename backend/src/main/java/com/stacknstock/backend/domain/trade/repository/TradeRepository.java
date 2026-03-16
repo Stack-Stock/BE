@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface TradeRepository extends JpaRepository<Trade, Long> {
 
@@ -20,4 +21,19 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     BigDecimal getTodaySettlement(Long runId, Integer dayNo);
 
+    /**
+     * 오늘 정산되는 거래 내역 조회
+     */
+    @Query("""
+    SELECT t
+    FROM Trade t
+    WHERE t.run.runId = :runId
+    AND t.settleDayNo = :dayNo
+    AND t.settledAt IS NULL
+    AND t.side = 'SELL'
+    """)
+    List<Trade> findTodaySettlementTrades(
+            Long runId,
+            Integer dayNo
+    );
 }

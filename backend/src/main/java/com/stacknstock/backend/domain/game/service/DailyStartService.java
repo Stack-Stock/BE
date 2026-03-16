@@ -176,8 +176,8 @@ public class DailyStartService {
                         dayNo,
                         runState.getCashBalance(),
                         totalAsset,
-                        List.of(),   // 보유 종목 목록 (추후 확장)
-                        List.of()    // 거래 로그 (추후 확장)
+                        List.of(),   // 보유 종목 목록 (추후 확장) TODO
+                        List.of()    // 거래 로그 (추후 확장) TODO
                 );
 
         /**
@@ -242,11 +242,11 @@ public class DailyStartService {
          * 최종 응답 반환
          */
         return new DailyStartResponse(
-                null,           // DaySummary (추후 추가)
+                null,           // DaySummary (추후 추가) TODO
                 portfolio,
                 articleArchive,
                 tradingScreen,
-                false,          // RandomEvent 여부 (추후 구현)
+                false,          // RandomEvent 여부 (추후 구현) TODO
                 settlement,
                 hasInspiration
         );

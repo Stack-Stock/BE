@@ -19,6 +19,8 @@ import java.math.BigDecimal;
         }
 )
 @Getter
+@AllArgsConstructor
+@Builder
 @NoArgsConstructor
 public class Holding extends SnapshotEntity {
 
