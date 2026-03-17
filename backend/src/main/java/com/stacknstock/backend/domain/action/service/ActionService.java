@@ -60,8 +60,6 @@ public class ActionService {
             case INFO_TV -> executeInfoTv(gameRun, runState, day, dayState);
             case INFO_PAPER -> executeInfoPaper(gameRun, runState, day, dayState);
             case STUDY -> executeStudy(gameRun, runState, day, dayState);
-            case BUY -> executeBuy(runState, dayState, request);
-            case SELL -> executeSell(runState, dayState, request);
             case SLEEP -> executeSleep(runState, dayState);
             case EVENT -> throw new IllegalArgumentException("EVENT는 직접 실행할 수 없는 타입입니다.");
         };
@@ -273,31 +271,6 @@ public class ActionService {
         );
     }
 
-    /**
-     * TODO
-     * 매수
-     */
-    private ActionResultResponse executeBuy(RunState runState, DayState dayState, ActionRequest request) {
-        return new ActionResultResponse(
-                runState.getCurrentDayNo(),
-                dayState.getApRemaining(),
-                runState.getCashBalance(),
-                "BUY 로직은 다음 단계에서 구현합니다."
-        );
-    }
-
-    /**
-     * TODO
-     * 매도
-     */
-    private ActionResultResponse executeSell(RunState runState, DayState dayState, ActionRequest request) {
-        return new ActionResultResponse(
-                runState.getCurrentDayNo(),
-                dayState.getApRemaining(),
-                runState.getCashBalance(),
-                "SELL 로직은 다음 단계에서 구현합니다."
-        );
-    }
 
     /**
      * 잠 자기
@@ -321,7 +294,7 @@ public class ActionService {
                 .findById(nextDayEntity.getDayId())
                 .orElseThrow(() -> new IllegalStateException("DayState가 존재하지 않습니다."));
 
-        nextDayState.setApRemaining(3);
+        nextDayState.setApRemaining(2);
         nextDayState.setStudyDone(false);
 
         dayStateRepository.save(nextDayState);

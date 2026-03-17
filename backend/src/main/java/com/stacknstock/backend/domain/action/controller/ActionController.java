@@ -29,8 +29,6 @@ public class ActionController {
      * - INFO_TV
      * - INFO_PAPER
      * - STUDY
-     * - BUY
-     * - SELL
      * - SLEEP
      */
     @PostMapping
