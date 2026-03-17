@@ -11,8 +11,8 @@ public record UserResponse(
         String email,
 
         @Schema(description = "닉네임")
-        String nickname
+        String nickname,
 
-//        @Schema(description = "이어하기 데이터 보유 여부")
-//        Boolean
+        @Schema(description = "이어하기 데이터 보유 여부")
+        Boolean canContinue
 ) {}

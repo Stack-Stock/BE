@@ -1,7 +1,7 @@
 package com.stacknstock.backend.domain.user.controller;
 
 import com.stacknstock.backend.domain.user.dto.UserResponse;
-import com.stacknstock.backend.domain.user.entity.User;
+import com.stacknstock.backend.domain.user.service.UserService;
 import com.stacknstock.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,19 +16,17 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
 
+    private final UserService userService;
+
     @GetMapping("/me")
     @Operation(summary = "내 정보 조회")
     public ResponseEntity<UserResponse> getMyInfo(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
 
-        User user = userDetails.getUser();
+        Long userId = userDetails.getUser().getUserId();
 
-        UserResponse response = new UserResponse(
-                user.getUserId(),
-                user.getEmail(),
-                user.getNickname()
-        );
+        UserResponse response = userService.getMyInfo(userId);
 
         return ResponseEntity.ok(response);
     }
