@@ -2,7 +2,10 @@ package com.stacknstock.backend.domain.game.entity;
 
 import com.stacknstock.backend.global.entity.SnapshotEntity;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.data.domain.Persistable;
 
 import java.math.BigDecimal;
 
@@ -11,11 +14,33 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RunState extends SnapshotEntity {
+public class RunState extends SnapshotEntity implements Persistable<Long> {
 
     @Id
     @Column(name = "run_id")
     private Long runId;
+
+    // 💡 [핵심] JPA가 DB에 저장하지 않는 임시 플래그
+    @Transient
+    private boolean isNewRecord = true;
+
+    // 💡 Persistable 구현
+    @Override
+    public Long getId() {
+        return this.runId;
+    }
+
+    // 💡 Persistable 구현: 무조건 INSERT 유도
+    @Override
+    public boolean isNew() {
+        return this.isNewRecord;
+    }
+
+    @PostPersist
+    @PostLoad
+    protected void load() {
+        this.isNewRecord = false;
+    }
 
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
@@ -41,7 +66,7 @@ public class RunState extends SnapshotEntity {
     public static RunState create(GameRun run, Integer currentDayNo, java.math.BigDecimal cashBalance, Integer inspirationCount, Integer totalStudyCnt) {
         RunState runState = new RunState();
         runState.run = run;
-        runState.runId = run.getRunId();
+        // 💡 JPA가 @MapsId로 알아서 넣어주므로 직접 할당 제거
         runState.currentDayNo = currentDayNo;
         runState.cashBalance = cashBalance;
         runState.inspirationCount = inspirationCount;
