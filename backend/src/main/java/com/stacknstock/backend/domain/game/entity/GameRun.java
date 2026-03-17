@@ -46,4 +46,9 @@ public class GameRun extends BaseEntity {
         gameRun.startAt = java.time.LocalDateTime.now();
         return gameRun;
     }
+
+    // GameRun 상태 업데이트
+    public void updateStatus(RunStatus status) {
+        this.status = status;
+    }
 }

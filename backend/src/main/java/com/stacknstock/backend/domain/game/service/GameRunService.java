@@ -55,6 +55,16 @@ public class GameRunService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        /**
+         * 기존 GameRun 종료 처리
+         *
+         * - 해당 유저의 모든 RUNNING 상태 게임을 ENDED로 변경
+         */
+        List<GameRun> runningRuns = gameRunRepository.findAllByUserUserIdAndStatus(userId, RunStatus.RUNNING);
+        for (GameRun run : runningRuns) {
+            run.updateStatus(RunStatus.ENDED);
+        }
+
         // 새 게임런 생성
         GameRun gameRun = GameRun.create(user, RunStatus.RUNNING, INITIAL_CASH);
         gameRunRepository.save(gameRun);
