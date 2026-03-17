@@ -12,6 +12,8 @@ import org.hibernate.annotations.Fetch;
 @Table(name = "scenario_days")
 @Getter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ScenarioDay extends BaseEntity {
 
     @Id
@@ -33,4 +35,13 @@ public class ScenarioDay extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
     private RandomEvent event;
+
+    public static ScenarioDay create(GameRun gameRun, int dayNo, GameCase gameCase, RandomEvent selectedEvent) {
+        return ScenarioDay.builder()
+                .run(gameRun)
+                .dayNo(dayNo)
+                .gameCase(gameCase)
+                .event(selectedEvent)
+                .build();
+    }
 }
