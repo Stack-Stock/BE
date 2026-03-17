@@ -233,10 +233,32 @@ public class DailyStartService {
                 );
 
         /**
-         * T+3 정산 금액
+         * T+3 정산 처리
+         *
+         * - 오늘 정산 대상 매도 거래 조회
+         * - execAmount 합산
+         * - RunState 현금 반영
+         * - trade.settledAt 업데이트
          */
-        BigDecimal settlement =
-                tradeRepository.getTodaySettlement(runId, dayNo);
+        List<com.stacknstock.backend.domain.trade.entity.Trade> settlements =
+                tradeRepository.findTodaySettlementTrades(runId, dayNo);
+
+        BigDecimal settlement = settlements.stream()
+                .map(t -> t.getExecAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (settlement.compareTo(BigDecimal.ZERO) > 0) {
+
+            // 현금 반영
+            runState.setCashBalance(
+                    runState.getCashBalance().add(settlement)
+            );
+
+            // 정산 완료 처리
+            settlements.forEach(t ->
+                    t.setSettledAt(java.time.LocalDateTime.now())
+            );
+        }
 
         /**
          * 최종 응답 반환

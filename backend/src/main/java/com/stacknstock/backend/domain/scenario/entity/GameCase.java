@@ -15,26 +15,26 @@ public class GameCase {
     @Column(name = "case_id")
     private Long caseId;
 
-    @Column(name = "story", nullable = false, length = 200)
+    @Column(name = "story", nullable = false, length = 200, columnDefinition = "text")
     private String story;
 
     @Lob
-    @Column(name = "phone", nullable = false)
+    @Column(name = "phone", nullable = false, columnDefinition = "text")
     private String phone;
 
     @Lob
-    @Column(name = "tv", nullable = false)
+    @Column(name = "tv", nullable = false, columnDefinition = "text")
     private String tv;
 
     @Lob
-    @Column(name = "newspaper", nullable = false)
+    @Column(name = "newspaper", nullable = false, columnDefinition = "text")
     private String newspaper;
 
     @Column(name = "article_json", columnDefinition = "jsonb")
     private String articleJson;
 
     @Lob
-    @Column(name = "reason", nullable = false)
+    @Column(name = "reason", nullable = false, columnDefinition = "text")
     private String reason;
 
     @Column(name = "up_down_json", columnDefinition = "jsonb", nullable = false)
