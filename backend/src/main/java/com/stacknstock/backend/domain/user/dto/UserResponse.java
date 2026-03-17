@@ -12,4 +12,7 @@ public record UserResponse(
 
         @Schema(description = "닉네임")
         String nickname
+
+//        @Schema(description = "이어하기 데이터 보유 여부")
+//        Boolean
 ) {}
