@@ -7,6 +7,9 @@ import com.stacknstock.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
 @Getter
 @NoArgsConstructor
@@ -33,6 +36,7 @@ public class Action extends BaseEntity {
     @Column(name = "ap_cost", nullable = false)
     private Integer apCost;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "meta", columnDefinition = "jsonb")
     private String meta;
 
