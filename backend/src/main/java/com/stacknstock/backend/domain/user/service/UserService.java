@@ -9,6 +9,9 @@ import com.stacknstock.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -22,7 +25,7 @@ public class UserService {
     public UserResponse getMyInfo(Long userId) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("유저 없음"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         /**
          * 이어하기 여부 판단
