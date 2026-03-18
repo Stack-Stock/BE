@@ -18,22 +18,18 @@ public class GameCase {
     @Column(name = "story", nullable = false, length = 200, columnDefinition = "text")
     private String story;
 
-    @Lob
     @Column(name = "phone", nullable = false, columnDefinition = "text")
     private String phone;
 
-    @Lob
     @Column(name = "tv", nullable = false, columnDefinition = "text")
     private String tv;
 
-    @Lob
     @Column(name = "newspaper", nullable = false, columnDefinition = "text")
     private String newspaper;
 
     @Column(name = "article_json", columnDefinition = "jsonb")
     private String articleJson;
 
-    @Lob
     @Column(name = "reason", nullable = false, columnDefinition = "text")
     private String reason;
 
