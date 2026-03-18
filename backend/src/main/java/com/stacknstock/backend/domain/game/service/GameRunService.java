@@ -76,6 +76,8 @@ public class GameRunService {
         GameRun gameRun = GameRun.create(user, RunStatus.RUNNING, INITIAL_CASH);
         gameRunRepository.save(gameRun);
 
+        generateScenarios(gameRun);
+
         RunState runState = RunState.create(
                 gameRun,
                 INITIAL_DAY_NO,
