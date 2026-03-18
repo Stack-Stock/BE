@@ -44,4 +44,8 @@ public class ScenarioDay extends BaseEntity {
                 .event(selectedEvent)
                 .build();
     }
+
+    public void updateEvent(RandomEvent newEvent) {
+        this.event = newEvent;
+    }
 }

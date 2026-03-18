@@ -40,4 +40,6 @@ public interface ScenarioDayRepository extends JpaRepository<ScenarioDay, Long> 
             @Param("runId") Long runId,
             @Param("dayNo") Integer dayNo
     );
+
+    Optional<ScenarioDay> findByRunRunIdAndDayNo(Long runId, Integer dayNo);
 }
