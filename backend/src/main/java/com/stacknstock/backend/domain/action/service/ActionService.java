@@ -289,11 +289,22 @@ public class ActionService {
                 .findByGameRunRunIdAndDayNo(runState.getRun().getRunId(), nextDay)
                 .orElseThrow(() -> new IllegalStateException("다음 Day가 존재하지 않습니다."));
 
-        /* 다음 DayState 초기화 */
+        /*
+         * 다음 DayState 조회 또는 생성
+         *
+         * DayState는 각 일차의 상태를 저장하는 스냅샷 테이블이므로,
+         * 다음 날로 처음 이동하는 시점에는 아직 row가 없을 수 있다.
+         * 따라서 없으면 새로 생성해야 한다.
+         */
         DayState nextDayState = dayStateRepository
                 .findById(nextDayEntity.getDayId())
-                .orElseThrow(() -> new IllegalStateException("DayState가 존재하지 않습니다."));
+                .orElseGet(() -> DayState.create(nextDayEntity, 2, false));
 
+        /*
+         * 이미 존재하는 경우에도 하루 시작 상태로 맞춘다.
+         * - AP 초기화
+         * - 공부 여부 초기화
+         */
         nextDayState.setApRemaining(2);
         nextDayState.setStudyDone(false);
 
