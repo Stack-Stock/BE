@@ -21,6 +21,8 @@ import com.stacknstock.backend.domain.scenario.repository.GameCaseRepository;
 import com.stacknstock.backend.domain.scenario.repository.ScenarioDayRepository;
 import com.stacknstock.backend.domain.stock.entity.StockPrice;
 import com.stacknstock.backend.domain.stock.repository.StockPriceRepository;
+import com.stacknstock.backend.domain.stock.entity.Stock;
+import com.stacknstock.backend.domain.stock.repository.StockRepository;
 import com.stacknstock.backend.domain.trade.entity.Holding;
 import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
 import com.stacknstock.backend.domain.user.entity.User;
@@ -52,6 +54,7 @@ public class GameRunService {
     private final UserRepository userRepository;
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
+    private final StockRepository stockRepository;
     private final GameCaseRepository gameCaseRepository;
     private final RandomEventRepository randomEventRepository;
     private final ScenarioDayRepository scenarioDayRepository;
@@ -94,11 +97,47 @@ public class GameRunService {
         dayRepository.save(day);
 
         /**
-         * DayState는 이제 studyCount 대신 studied(Boolean) 필드를 사용한다.
-         * 새 게임 시작 시 아직 공부하지 않았으므로 false로 초기화한다.
+         * DayState 생성 및 초기화
+         * - AP: INITIAL_AP
+         * - studied: false (아직 공부 안함)
          */
-        DayState dayState = DayState.create(day, INITIAL_AP, false);
+        DayState dayState = DayState.builder()
+                .day(day)
+                .apRemaining(INITIAL_AP)
+                .studyDone(false)
+                .build();
+
         dayStateRepository.save(dayState);
+
+        /**
+         * 초기 주가 데이터 생성
+         * - Day 1 기준으로 모든 종목의 가격을 생성
+         * - stocks 테이블의 basePrice를 기준으로 설정
+         */
+        List<Stock> stocks = stockRepository.findAll();
+
+        List<StockPrice> stockPrices = new ArrayList<>();
+
+        for (Stock stock : stocks) {
+
+            BigDecimal basePrice = stock.getStartPrice();
+
+            if (basePrice == null) {
+                throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+            }
+
+            StockPrice stockPrice = StockPrice.builder()
+                    .run(gameRun)
+                    .stock(stock)
+                    .baseDate(INITIAL_DAY_NO)
+                    .closePrice(basePrice)
+                    .returnPct(BigDecimal.ZERO)
+                    .build();
+
+            stockPrices.add(stockPrice);
+        }
+
+        stockPriceRepository.saveAll(stockPrices);
 
         return new StartGameResponse(
                 gameRun.getRunId(),

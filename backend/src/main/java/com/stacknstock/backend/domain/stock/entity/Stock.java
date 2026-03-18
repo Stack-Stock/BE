@@ -4,6 +4,8 @@ import com.stacknstock.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "stocks")
 @Getter
@@ -26,7 +28,7 @@ public class Stock extends BaseEntity {
     private String companyName;
 
     @Column(name = "start_price", nullable = false)
-    private Long startPrice;
+    private BigDecimal startPrice;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
