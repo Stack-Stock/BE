@@ -4,6 +4,8 @@ import com.stacknstock.backend.domain.day.entity.Day;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
+import com.stacknstock.backend.domain.event.entity.RandomEvent;
+import com.stacknstock.backend.domain.event.repository.RandomEventRepository;
 import com.stacknstock.backend.domain.game.dto.ContinueRunResponse;
 import com.stacknstock.backend.domain.game.dto.PortfolioResponse;
 import com.stacknstock.backend.domain.game.dto.PortfolioStockResponse;
@@ -13,6 +15,10 @@ import com.stacknstock.backend.domain.game.entity.RunState;
 import com.stacknstock.backend.domain.game.enums.RunStatus;
 import com.stacknstock.backend.domain.game.repository.GameRunRepository;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
+import com.stacknstock.backend.domain.scenario.entity.GameCase;
+import com.stacknstock.backend.domain.scenario.entity.ScenarioDay;
+import com.stacknstock.backend.domain.scenario.repository.GameCaseRepository;
+import com.stacknstock.backend.domain.scenario.repository.ScenarioDayRepository;
 import com.stacknstock.backend.domain.stock.entity.StockPrice;
 import com.stacknstock.backend.domain.stock.repository.StockPriceRepository;
 import com.stacknstock.backend.domain.trade.entity.Holding;
@@ -24,9 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +50,9 @@ public class GameRunService {
     private final UserRepository userRepository;
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
+    private final GameCaseRepository gameCaseRepository;
+    private final RandomEventRepository randomEventRepository;
+    private final ScenarioDayRepository scenarioDayRepository;
 
     /**
     새 게임 런 시작하기
@@ -244,5 +251,48 @@ public class GameRunService {
                 holdingResponses,
                 tradeLogs
         );
+    }
+
+    private void generateScenarios(GameRun gameRun) {
+        List<GameCase> allCases = gameCaseRepository.findAll();
+        Collections.shuffle(allCases);
+
+        List<RandomEvent> eventPool = randomEventRepository.findAll();
+
+        Map<Integer, RandomEvent> scheduledEvents = new HashMap<>();
+        List<Integer> availableDays = new ArrayList<>();
+        for (int i = 1; i <= 80; i++) availableDays.add(i);
+        Collections.shuffle(availableDays);
+
+        for (RandomEvent event : eventPool) {
+            double roll = Math.random();
+            double prob = event.getEventProbability().doubleValue();
+
+            if (roll < prob) {
+                if (!availableDays.isEmpty()) {
+                    Integer targetDay = availableDays.remove(0);
+                    scheduledEvents.put(targetDay, event);
+                }
+            }
+        }
+
+        List<ScenarioDay> scenarioDays = new ArrayList<>();
+        for (int i = 0; i < 80; i++) {
+            int dayNo = i + 1;
+            GameCase gameCase = allCases.get(i);
+
+            // 해당 날짜에 예약된 이벤트가 있으면 가져오고, 없으면 null
+            RandomEvent selectedEvent = scheduledEvents.get(dayNo);
+
+            ScenarioDay scenarioDay = ScenarioDay.create(
+                    gameRun,
+                    dayNo,
+                    gameCase,
+                    selectedEvent
+            );
+            scenarioDays.add(scenarioDay);
+        }
+
+        scenarioDayRepository.saveAll(scenarioDays);
     }
 }
