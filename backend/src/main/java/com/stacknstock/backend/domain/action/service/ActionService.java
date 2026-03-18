@@ -20,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -42,16 +45,16 @@ public class ActionService {
     public ActionResultResponse executeAction(Long userId, ActionRequest request) {
 
         GameRun gameRun = gameRunRepository.findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
-                .orElseThrow(() -> new IllegalArgumentException("진행 중인 게임이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_NOT_FOUND));
 
         RunState runState = runStateRepository.findByRunRunId(gameRun.getRunId())
-                .orElseThrow(() -> new IllegalStateException("RunState가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         Day day = dayRepository.findByGameRunRunIdAndDayNo(gameRun.getRunId(), runState.getCurrentDayNo())
-                .orElseThrow(() -> new IllegalStateException("현재 Day가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_NOT_FOUND));
 
         DayState dayState = dayStateRepository.findById(day.getDayId())
-                .orElseThrow(() -> new IllegalStateException("DayState가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_STATE_NOT_FOUND));
 
         ActionType actionType = request.actionType();
 
@@ -61,7 +64,7 @@ public class ActionService {
             case INFO_PAPER -> executeInfoPaper(gameRun, runState, day, dayState);
             case STUDY -> executeStudy(gameRun, runState, day, dayState);
             case SLEEP -> executeSleep(runState, dayState);
-            case EVENT -> throw new IllegalArgumentException("EVENT는 직접 실행할 수 없는 타입입니다.");
+            case EVENT -> throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
         };
     }
 
@@ -83,12 +86,12 @@ public class ActionService {
         /* 오늘의 시나리오 조회 */
         ScenarioDay scenarioDay = scenarioDayRepository
                 .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
-                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SCENARIO_NOT_FOUND));
 
         /* GameCase 조회 */
         GameCase gameCase = scenarioDay.getGameCase();
         if (gameCase == null) {
-            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+            throw new BusinessException(ErrorCode.GAME_CASE_NOT_FOUND);
         }
 
         /* 행동 로그 저장 (AP 소모 없음) */
@@ -128,7 +131,7 @@ public class ActionService {
         int apCost = 1;
 
         if (dayState.getApRemaining() < apCost) {
-            throw new IllegalStateException("AP가 부족합니다.");
+            throw new BusinessException(ErrorCode.AP_NOT_ENOUGH);
         }
 
         dayState.setApRemaining(dayState.getApRemaining() - apCost);
@@ -138,11 +141,11 @@ public class ActionService {
 
         ScenarioDay scenarioDay = scenarioDayRepository
                 .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
-                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SCENARIO_NOT_FOUND));
 
         GameCase gameCase = scenarioDay.getGameCase();
         if (gameCase == null) {
-            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+            throw new BusinessException(ErrorCode.GAME_CASE_NOT_FOUND);
         }
 
         Action action = Action.builder()
@@ -181,7 +184,7 @@ public class ActionService {
         int apCost = 2;
 
         if (dayState.getApRemaining() < apCost) {
-            throw new IllegalStateException("AP가 부족합니다.");
+            throw new BusinessException(ErrorCode.AP_NOT_ENOUGH);
         }
 
         dayState.setApRemaining(dayState.getApRemaining() - apCost);
@@ -191,11 +194,11 @@ public class ActionService {
 
         ScenarioDay scenarioDay = scenarioDayRepository
                 .findWithGameCase(run.getRunId(), runState.getCurrentDayNo())
-                .orElseThrow(() -> new IllegalStateException("ScenarioDay가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SCENARIO_NOT_FOUND));
 
         GameCase gameCase = scenarioDay.getGameCase();
         if (gameCase == null) {
-            throw new IllegalStateException("GameCase가 존재하지 않습니다.");
+            throw new BusinessException(ErrorCode.GAME_CASE_NOT_FOUND);
         }
 
         Action action = Action.builder()
@@ -235,7 +238,7 @@ public class ActionService {
 
         /* AP 부족 검사 */
         if (dayState.getApRemaining() < apCost) {
-            throw new IllegalStateException("AP가 부족합니다.");
+            throw new BusinessException(ErrorCode.AP_NOT_ENOUGH);
         }
 
         /* AP 차감 */
@@ -243,7 +246,7 @@ public class ActionService {
 
         /* 공부 여부 기록 (이제 DayState는 studied Boolean 필드를 사용한다) */
         if (Boolean.TRUE.equals(dayState.getStudyDone())) {
-            throw new IllegalStateException("오늘은 이미 공부했습니다.");
+            throw new BusinessException(ErrorCode.ALREADY_STUDIED);
         }
 
         dayState.setStudyDone(true);
@@ -287,13 +290,26 @@ public class ActionService {
         /* 다음 Day 조회 */
         Day nextDayEntity = dayRepository
                 .findByGameRunRunIdAndDayNo(runState.getRun().getRunId(), nextDay)
-                .orElseThrow(() -> new IllegalStateException("다음 Day가 존재하지 않습니다."));
+                .orElseGet(() -> dayRepository.save(
+                        Day.create(runState.getRun(), nextDay, 2)
+                ));
 
-        /* 다음 DayState 초기화 */
+        /*
+         * 다음 DayState 조회 또는 생성
+         *
+         * DayState는 각 일차의 상태를 저장하는 스냅샷 테이블이므로,
+         * 다음 날로 처음 이동하는 시점에는 아직 row가 없을 수 있다.
+         * 따라서 없으면 새로 생성해야 한다.
+         */
         DayState nextDayState = dayStateRepository
                 .findById(nextDayEntity.getDayId())
-                .orElseThrow(() -> new IllegalStateException("DayState가 존재하지 않습니다."));
+                .orElseGet(() -> DayState.create(nextDayEntity, 2, false));
 
+        /*
+         * 이미 존재하는 경우에도 하루 시작 상태로 맞춘다.
+         * - AP 초기화
+         * - 공부 여부 초기화
+         */
         nextDayState.setApRemaining(2);
         nextDayState.setStudyDone(false);
 

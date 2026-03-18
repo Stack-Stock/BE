@@ -6,6 +6,8 @@ import com.stacknstock.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +19,7 @@ public class AuthService {
     public void signUp(SignUpRequest request) {
 
         if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
+            throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS);
         }
 
         User user = new User(

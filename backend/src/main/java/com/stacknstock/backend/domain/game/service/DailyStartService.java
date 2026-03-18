@@ -25,6 +25,8 @@ import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
 import com.stacknstock.backend.domain.trade.repository.TradeRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +67,7 @@ public class DailyStartService {
          */
         RunState runState = runStateRepository
                 .findByRunRunId(runId)
-                .orElseThrow();
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         Integer dayNo = runState.getCurrentDayNo();
 
@@ -75,7 +77,7 @@ public class DailyStartService {
          */
         DayState today = dayStateRepository
                 .findByDayGameRunRunIdAndDayDayNo(runId, dayNo)
-                .orElseThrow();
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_STATE_NOT_FOUND));
 
         DayState yesterday = dayStateRepository
                 .findByDayGameRunRunIdAndDayDayNo(runId, dayNo - 1)
@@ -126,18 +128,18 @@ public class DailyStartService {
                     // article_json(JSONB) → ArticleJsonDto 리스트로 파싱
                     ArticleJsonDto article;
                     try {
-
                         List<ArticleJsonDto> articleList =
                                 objectMapper.readValue(
                                         gameCase.getArticleJson(),
                                         new TypeReference<List<ArticleJsonDto>>() {}
                                 );
-
                         // 현재 구조상 기사 하나만 사용
+                        if (articleList.isEmpty()) {
+                            throw new BusinessException(ErrorCode.GAME_CASE_NOT_FOUND);
+                        }
                         article = articleList.get(0);
-
                     } catch (Exception e) {
-                        throw new RuntimeException("article_json 파싱 실패", e);
+                        throw new BusinessException(ErrorCode.INTERNAL_ERROR);
                     }
 
                    return new ArticleResponse(
@@ -188,6 +190,9 @@ public class DailyStartService {
          */
         List<StockPrice> prices =
                 stockPriceRepository.findAllPrices(runId);
+        if (prices.isEmpty()) {
+            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+        }
 
         // 종목별 price history 생성
         Map<Long, List<PricePointResponse>> priceHistoryMap =
