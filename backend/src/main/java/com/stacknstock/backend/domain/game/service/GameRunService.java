@@ -25,6 +25,8 @@ import com.stacknstock.backend.domain.trade.entity.Holding;
 import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
 import com.stacknstock.backend.domain.user.entity.User;
 import com.stacknstock.backend.domain.user.repository.UserRepository;
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +62,7 @@ public class GameRunService {
     @Transactional
     public StartGameResponse startGame(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         /**
          * 기존 GameRun 종료 처리
@@ -112,22 +114,22 @@ public class GameRunService {
 
         GameRun gameRun = gameRunRepository
                 .findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
-                .orElseThrow(() -> new IllegalArgumentException("진행 중인 게임이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_NOT_FOUND));
 
         RunState runState = runStateRepository
                 .findByRunRunId(gameRun.getRunId())
-                .orElseThrow(() -> new IllegalStateException("RunState가 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         Day day = dayRepository
                 .findByGameRunRunIdAndDayNo(
                         gameRun.getRunId(),
                         runState.getCurrentDayNo()
                 )
-                .orElseThrow(() -> new IllegalStateException("Day가 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_NOT_FOUND));
 
         DayState dayState = dayStateRepository
                 .findById(day.getDayId())
-                .orElseThrow(() -> new IllegalStateException("DayState가 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_STATE_NOT_FOUND));
 
         return new ContinueRunResponse(
                 gameRun.getRunId(),
@@ -154,11 +156,11 @@ public class GameRunService {
 
         // 1) 현재 진행 중인 게임 조회
         GameRun gameRun = gameRunRepository.findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
-                .orElseThrow(() -> new IllegalArgumentException("진행 중인 게임이 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_NOT_FOUND));
 
         // 2) 현재 게임 상태 조회
         RunState runState = runStateRepository.findByRunRunId(gameRun.getRunId())
-                .orElseThrow(() -> new IllegalStateException("RunState가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         // 3) 현재 게임의 보유 주식 목록 조회
         List<Holding> holdings = holdingRepository.findByRunRunId(gameRun.getRunId());
@@ -184,7 +186,8 @@ public class GameRunService {
         Map<Long, StockPrice> priceMap = prices.stream()
                 .collect(Collectors.toMap(
                         p -> p.getStock().getStockId(),
-                        p -> p
+                        p -> p,
+                        (p1, p2) -> p2
                 ));
 
         List<PortfolioStockResponse> holdingResponses = new ArrayList<>();
@@ -197,7 +200,7 @@ public class GameRunService {
             StockPrice stockPrice = priceMap.get(holding.getStock().getStockId());
 
             if (stockPrice == null) {
-                throw new IllegalStateException("현재 주가 정보를 찾을 수 없습니다.");
+                throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
             }
 
             BigDecimal currentPrice = stockPrice.getClosePrice();

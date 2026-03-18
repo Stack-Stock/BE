@@ -17,6 +17,8 @@ import com.stacknstock.backend.domain.trade.enums.TradeSide;
 import com.stacknstock.backend.domain.trade.repository.TradeRepository;
 import com.stacknstock.backend.domain.user.entity.User;
 import com.stacknstock.backend.domain.user.repository.UserRepository;
+import com.stacknstock.backend.global.exception.BusinessException;
+import com.stacknstock.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,11 +48,11 @@ public class TradeService {
          */
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         RunState runState = runStateRepository
                 .findByRunUserUserId(userId)
-                .orElseThrow(() -> new IllegalStateException("RunState not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         GameRun run = runState.getRun();
         int currentDayNo = runState.getCurrentDayNo();
@@ -63,7 +65,7 @@ public class TradeService {
 
         Day currentDay = dayRepository
                 .findByGameRunRunIdAndDayNo(run.getRunId(), currentDayNo)
-                .orElseThrow(() -> new IllegalStateException("Day not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_NOT_FOUND));
 
         /*
          * ===============================
@@ -93,13 +95,15 @@ public class TradeService {
         Map<Long, BigDecimal> priceMap = prices.stream()
                 .collect(Collectors.toMap(
                         p -> p.getStock().getStockId(),
-                        StockPrice::getClosePrice
+                        StockPrice::getClosePrice,
+                        (p1, p2) -> p2
                 ));
 
         Map<Long, Stock> stockMap = prices.stream()
                 .collect(Collectors.toMap(
                         p -> p.getStock().getStockId(),
-                        StockPrice::getStock
+                        StockPrice::getStock,
+                        (s1, s2) -> s2
                 ));
 
         /*
@@ -113,7 +117,8 @@ public class TradeService {
                 .stream()
                 .collect(Collectors.toMap(
                         h -> h.getStock().getStockId(),
-                        h -> h
+                        h -> h,
+                        (h1, h2) -> h2
                 ));
 
         /*
@@ -131,7 +136,7 @@ public class TradeService {
             BigDecimal price = priceMap.get(stockId);
 
             if (price == null) {
-                throw new IllegalStateException("가격 정보 없음");
+                throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
             }
 
             BigDecimal amount = price.multiply(BigDecimal.valueOf(quantity));
@@ -147,7 +152,7 @@ public class TradeService {
             if (side == TradeSide.BUY) {
 
                 if (runState.getCashBalance().compareTo(amount) < 0) {
-                    throw new IllegalStateException("현금 부족");
+                    throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
                 }
 
                 // 현금 차감
@@ -193,7 +198,7 @@ public class TradeService {
             else {
 
                 if (holding == null || holding.getQty() < quantity) {
-                    throw new IllegalStateException("보유 수량 부족");
+                    throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
                 }
 
                 Long remainQty = holding.getQty() - quantity;
