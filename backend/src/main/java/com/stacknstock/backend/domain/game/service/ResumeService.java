@@ -115,20 +115,31 @@ public class ResumeService {
         /*
          * 포트폴리오
          */
-        List<Holding> holdings = holdingRepository.findPortfolio(runId);
+        List<Holding> holdings = holdingRepository.findHoldingsWithStock(runId);
 
         /*
          * 거래창 데이터
          *
          * 이어하기에서는 조회만 수행한다.
          */
-        List<StockPrice> prices = stockPriceRepository.findAllPrices(runId);
+        // 최신 가격 (현재 상태용)
+        List<StockPrice> latestPrices = stockPriceRepository.findLatestPrices(runId, dayNo);
 
-        if (prices.isEmpty()) {
+        // 전체 가격 히스토리 (그래프용)
+        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId);
+
+        if (latestPrices.isEmpty()) {
             throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
         }
 
-        Map<Long, List<StockPrice>> groupedPrices = prices.stream()
+        Map<Long, StockPrice> latestPriceMap = latestPrices.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getStock().getStockId(),
+                        p -> p,
+                        (a, b) -> a.getBaseDate() > b.getBaseDate() ? a : b
+                ));
+
+        Map<Long, List<StockPrice>> groupedPrices = historyPrices.stream()
                 .collect(Collectors.groupingBy(p -> p.getStock().getStockId()));
 
         /**
@@ -136,12 +147,11 @@ public class ResumeService {
          */
         var holdingResponses = holdings.stream()
                 .map(h -> {
-                    BigDecimal currentPrice = groupedPrices.getOrDefault(
-                            h.getStock().getStockId(), List.of()
-                    ).stream()
-                            .max(Comparator.comparing(StockPrice::getBaseDate))
-                            .map(StockPrice::getClosePrice)
-                            .orElse(BigDecimal.ZERO);
+                    BigDecimal currentPrice = latestPriceMap.getOrDefault(
+                            h.getStock().getStockId(), null
+                    ) == null
+                            ? BigDecimal.ZERO
+                            : latestPriceMap.get(h.getStock().getStockId()).getClosePrice();
 
                     BigDecimal evaluationAmount = currentPrice.multiply(BigDecimal.valueOf(h.getQty()));
                     BigDecimal totalCost = h.getAvgCost().multiply(BigDecimal.valueOf(h.getQty()));
@@ -187,15 +197,10 @@ public class ResumeService {
                         Long::sum
                 ));
 
-        List<TradingStockResponse> stocks = groupedPrices.entrySet()
-                .stream()
-                .map(entry -> {
-                    Long stockId = entry.getKey();
-                    List<StockPrice> stockPrices = entry.getValue();
-
-                    StockPrice latestPrice = stockPrices.stream()
-                            .max(Comparator.comparing(StockPrice::getBaseDate))
-                            .orElseThrow(() -> new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND));
+        List<TradingStockResponse> stocks = latestPriceMap.values().stream()
+                .map(latestPrice -> {
+                    Long stockId = latestPrice.getStock().getStockId();
+                    List<StockPrice> stockPrices = groupedPrices.getOrDefault(stockId, List.of());
 
                     List<PricePointResponse> priceHistory = stockPrices.stream()
                             .sorted(Comparator.comparing(StockPrice::getBaseDate))
@@ -205,15 +210,30 @@ public class ResumeService {
                             ))
                             .toList();
 
+                    // 전일 가격 찾기 (baseDate 기준으로 바로 이전 값)
+                    BigDecimal changeAmount = BigDecimal.ZERO;
+
+                    if (!stockPrices.isEmpty()) {
+                        List<StockPrice> sorted = stockPrices.stream()
+                                .sorted(Comparator.comparing(StockPrice::getBaseDate))
+                                .toList();
+
+                        for (int i = 0; i < sorted.size(); i++) {
+                            if (sorted.get(i).getBaseDate().equals(latestPrice.getBaseDate()) && i > 0) {
+                                BigDecimal prevPrice = sorted.get(i - 1).getClosePrice();
+                                changeAmount = latestPrice.getClosePrice().subtract(prevPrice);
+                                break;
+                            }
+                        }
+                    }
+
                     return new TradingStockResponse(
                             stockId,
                             latestPrice.getStock().getCompanyName(),
                             holdingQtyMap.getOrDefault(stockId, 0L),
                             latestPrice.getClosePrice(),
                             latestPrice.getReturnPct(),
-                            latestPrice.getReturnPct() == null
-                                    ? BigDecimal.ZERO
-                                    : latestPrice.getClosePrice().multiply(latestPrice.getReturnPct()),
+                            changeAmount,
                             priceHistory
                     );
                 })

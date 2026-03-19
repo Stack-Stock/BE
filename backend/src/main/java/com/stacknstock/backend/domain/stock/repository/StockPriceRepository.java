@@ -17,15 +17,30 @@ public interface StockPriceRepository extends JpaRepository<StockPrice, Long> {
     );
 
     /**
-     * 게임 시작 이후 전체 주가 데이터
+     * 특정 run + day 기준 최신 주가 조회
      *
-     * 그래프 계산 및 거래 화면 표시용
+     * - 현재가
+     * - 전일 대비 등락률 계산
      */
     @Query("""
-    select sp
-    from StockPrice sp
-    join fetch sp.stock
-    where sp.run.runId = :runId
-""")
-    List<StockPrice> findAllPrices(Long runId);
+        select sp
+        from StockPrice sp
+        join fetch sp.stock
+        where sp.run.runId = :runId
+          and sp.baseDate = :dayNo
+    """)
+    List<StockPrice> findLatestPrices(Long runId, Integer dayNo);
+
+    /**
+     * 게임 시작 이후 전체 주가 히스토리 조회
+     *
+     * - 그래프 데이터 생성용
+     */
+    @Query("""
+        select sp
+        from StockPrice sp
+        join fetch sp.stock
+        where sp.run.runId = :runId
+    """)
+    List<StockPrice> findPriceHistory(Long runId);
 }
