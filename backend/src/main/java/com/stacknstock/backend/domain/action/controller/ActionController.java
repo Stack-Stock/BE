@@ -53,4 +53,17 @@ public class ActionController {
 
         return ResponseEntity.ok(response);
     }
+
+
+    /**
+     * 번뜩임 소비 행동
+     */
+    @PostMapping("/inspiration")
+    public ResponseEntity<ActionResultResponse> useInspiration(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(
+                actionService.executeUseInspiration(userId)
+        );
+    }
 }

@@ -76,6 +76,7 @@ public class ActionService {
             case INFO_PAPER -> executeInfoPaper(gameRun, runState, day, dayState);
             case STUDY -> executeStudy(gameRun, runState, day, dayState);
             case SLEEP -> executeSleep(runState, dayState);
+            case USE_INSPIRATION -> executeUseInspiration(gameRun, runState, day, dayState);
             case EVENT -> throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
         };
     }
@@ -370,5 +371,77 @@ public class ActionService {
                 runState.getCashBalance(),
                 "다음 날로 이동했습니다."
         );
+    }
+
+
+    /**
+     * 번뜩임 소비
+     */
+    private ActionResultResponse executeUseInspiration(
+            GameRun run,
+            RunState runState,
+            Day day,
+            DayState dayState
+    ) {
+
+        /* 번뜩임 보유 여부 확인 */
+        if (runState.getInspirationCount() == null || runState.getInspirationCount() <= 0) {
+            throw new BusinessException(ErrorCode.INSPIRATION_NOT_ENOUGH);
+        }
+
+        /* 번뜩임 1 감소 */
+        runState.setInspirationCount(runState.getInspirationCount() - 1);
+
+        /* AP +1 */
+        dayState.setApRemaining(dayState.getApRemaining() + 1);
+
+        runStateRepository.save(runState);
+        dayStateRepository.save(dayState);
+
+        /* Action 로그 */
+        Action action = Action.builder()
+                .day(day)
+                .run(run)
+                .actionType(ActionType.USE_INSPIRATION)
+                .apCost(0)
+                .meta(null)
+                .build();
+
+        actionRepository.save(action);
+
+        return new ActionResultResponse(
+                runState.getCurrentDayNo(),
+                dayState.getApRemaining(),
+                runState.getCashBalance(),
+                "번뜩임을 사용하여 행동력이 증가했습니다."
+        );
+    }
+
+    /**
+     * 번뜩임 소비 (컨트롤러에서 userId로 직접 호출하는 wrapper)
+     */
+    public ActionResultResponse executeUseInspiration(Long userId) {
+
+        /* 현재 실행 중 게임 조회 */
+        GameRun gameRun = gameRunRepository.findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_NOT_FOUND));
+
+        /* RunState 조회 */
+        RunState runState = runStateRepository.findByRunRunId(gameRun.getRunId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
+
+        /* Day 조회 */
+        Day day = dayRepository.findByGameRunRunIdAndDayNo(
+                        gameRun.getRunId(),
+                        runState.getCurrentDayNo()
+                )
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_NOT_FOUND));
+
+        /* DayState 조회 */
+        DayState dayState = dayStateRepository.findById(day.getDayId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.DAY_STATE_NOT_FOUND));
+
+        /* 기존 내부 로직 호출 */
+        return executeUseInspiration(gameRun, runState, day, dayState);
     }
 }
