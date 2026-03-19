@@ -3,6 +3,8 @@ package com.stacknstock.backend.domain.stock.entity;
 import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.global.entity.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -10,6 +12,8 @@ import java.math.BigDecimal;
 
 @Entity
 @Getter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "stock_prices")
 public class StockPrice extends BaseEntity {
