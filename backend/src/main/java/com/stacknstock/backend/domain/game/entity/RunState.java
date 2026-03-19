@@ -74,4 +74,8 @@ public class RunState extends SnapshotEntity implements Persistable<Long> {
         runState.totalStudyCnt = totalStudyCnt;
         return runState;
     }
+
+    public void updateCashBalance(BigDecimal newBalance) {
+        this.cashBalance = newBalance;
+    }
 }
