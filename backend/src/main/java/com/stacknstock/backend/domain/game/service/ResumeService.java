@@ -2,6 +2,7 @@ package com.stacknstock.backend.domain.game.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
 import com.stacknstock.backend.domain.game.dto.ArticleArchiveResponse;
@@ -44,7 +45,8 @@ public class ResumeService {
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     /**
      * 이어하기 전용 조회 서비스
@@ -103,7 +105,7 @@ public class ResumeService {
                     } catch (BusinessException e) {
                         throw e;
                     } catch (Exception e) {
-                        throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+                        throw new BusinessException(ErrorCode.JSON_PARSE_ERROR);
                     }
                 })
                 .toList();
@@ -114,14 +116,6 @@ public class ResumeService {
          * 포트폴리오
          */
         List<Holding> holdings = holdingRepository.findPortfolio(runId);
-
-        BigDecimal stockValue = holdings.stream()
-                .map(h -> h.getAvgCost().multiply(BigDecimal.valueOf(h.getQty())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
-
-        PortfolioResponse portfolio;
 
         /*
          * 거래창 데이터
@@ -165,6 +159,17 @@ public class ResumeService {
                     );
                 })
                 .toList();
+
+        /**
+         * 보유 주식 평가금은 평균단가가 아니라 현재가 기준으로 계산해야 한다.
+         */
+        BigDecimal stockValue = holdingResponses.stream()
+                .map(com.stacknstock.backend.domain.game.dto.PortfolioStockResponse::evaluationAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
+
+        PortfolioResponse portfolio;
 
         portfolio = new PortfolioResponse(
                 runId,

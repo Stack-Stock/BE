@@ -31,7 +31,8 @@ public enum ErrorCode {
     // Action
     ACTION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "A400", "허용되지 않은 행동입니다"),
     AP_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "A401", "AP가 부족합니다"),
-    ALREADY_STUDIED(HttpStatus.BAD_REQUEST, "A402", "이미 공부했습니다");
+    ALREADY_STUDIED(HttpStatus.BAD_REQUEST, "A402", "이미 공부했습니다"),
+    JSON_PARSE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E501", "JSON 파싱 중 오류 발생");
 
     private final HttpStatus status;
     private final String code;
