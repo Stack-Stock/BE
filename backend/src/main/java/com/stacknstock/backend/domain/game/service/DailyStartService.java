@@ -1,5 +1,10 @@
 package com.stacknstock.backend.domain.game.service;
 
+import com.stacknstock.backend.domain.game.dto.DaySummaryResponse;
+import com.stacknstock.backend.domain.game.dto.PortfolioStockResponse;
+
+import java.util.Comparator;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -85,16 +90,19 @@ public class DailyStartService {
         BigDecimal settlement = processSettlement(runId, dayNo, runState);
 
         /* 조회용 데이터 구성 */
-        List<Holding> holdings = holdingRepository.findPortfolio(runId);
-        List<StockPrice> prices = stockPriceRepository.findAllPrices(runId);
+        List<Holding> holdings = holdingRepository.findHoldingsWithStock(runId);
+        // 최신 가격 (현재 상태용)
+        List<StockPrice> latestPrices = stockPriceRepository.findLatestPrices(runId, dayNo);
+        // 전체 가격 히스토리 (그래프용)
+        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId);
 
-        if (prices.isEmpty()) {
+        if (latestPrices.isEmpty()) {
             throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
         }
 
         ArticleArchiveResponse articleArchive = buildArticleArchive(runId, dayNo);
-        PortfolioResponse portfolio = buildPortfolio(runId, dayNo, runState, holdings, prices);
-        TradingScreenResponse tradingScreen = buildTradingScreen(runState, holdings, prices);
+        PortfolioResponse portfolio = buildPortfolio(runId, dayNo, runState, holdings, latestPrices);
+        TradingScreenResponse tradingScreen = buildTradingScreen(runState, holdings, latestPrices, historyPrices);
 
         /**
          * 오늘 랜덤 이벤트 ID 조회
@@ -103,8 +111,10 @@ public class DailyStartService {
                 .findEventIdByRunIdAndDayNo(runId, dayNo)
                 .orElse(null);
 
+        DaySummaryResponse daySummary = null;
+
         return new DailyStartResponse(
-                null,   // TODO DaySummary 설계 후 추가
+                daySummary,
                 portfolio,
                 articleArchive,
                 tradingScreen,
@@ -215,7 +225,38 @@ public class DailyStartService {
     /** 포트폴리오 응답 구성 */
     private PortfolioResponse buildPortfolio(Long runId, Integer dayNo, RunState runState, List<Holding> holdings, List<StockPrice> prices) {
 
-        BigDecimal stockValue = calculateStockValue(holdings, prices);
+        Map<Long, StockPrice> latestPriceMap = buildLatestPriceMap(prices);
+
+        List<PortfolioStockResponse> holdingResponses = holdings.stream()
+                .map(h -> {
+                    StockPrice latestPrice = latestPriceMap.get(h.getStock().getStockId());
+
+                    if (latestPrice == null) {
+                        throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+                    }
+
+                    BigDecimal currentPrice = latestPrice.getClosePrice();
+                    BigDecimal evaluationAmount = currentPrice.multiply(BigDecimal.valueOf(h.getQty()));
+                    BigDecimal totalCost = h.getAvgCost().multiply(BigDecimal.valueOf(h.getQty()));
+                    BigDecimal profitLoss = evaluationAmount.subtract(totalCost);
+
+                    return new PortfolioStockResponse(
+                            h.getStock().getStockId(),
+                            h.getStock().getTicker(),
+                            h.getStock().getCompanyName(),
+                            h.getQty(),
+                            h.getAvgCost(),
+                            currentPrice,
+                            evaluationAmount,
+                            profitLoss
+                    );
+                })
+                .toList();
+
+        BigDecimal stockValue = holdingResponses.stream()
+                .map(PortfolioStockResponse::evaluationAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
 
         return new PortfolioResponse(
@@ -223,21 +264,24 @@ public class DailyStartService {
                 dayNo,
                 runState.getCashBalance(),
                 totalAsset,
-                List.of(), // TODO 보유 종목 DTO 연결
-                List.of()  // TODO 거래 로그 DTO 연결
+                holdingResponses,
+                List.of()
         );
     }
 
     /** 거래 화면 응답 구성 */
-    private TradingScreenResponse buildTradingScreen(RunState runState, List<Holding> holdings, List<StockPrice> prices) {
+    private TradingScreenResponse buildTradingScreen(RunState runState, List<Holding> holdings, List<StockPrice> latestPrices, List<StockPrice> historyPrices) {
 
-        Map<Long, List<PricePointResponse>> priceHistoryMap = prices.stream()
-                .collect(Collectors.groupingBy(
-                        p -> p.getStock().getStockId(),
-                        Collectors.mapping(
-                                p -> new PricePointResponse(p.getBaseDate(), p.getClosePrice()),
-                                Collectors.toList()
-                        )
+        Map<Long, List<StockPrice>> groupedHistoryPrices = historyPrices.stream()
+                .collect(Collectors.groupingBy(p -> p.getStock().getStockId()));
+
+        Map<Long, List<PricePointResponse>> priceHistoryMap = groupedHistoryPrices.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream()
+                                .sorted(Comparator.comparing(StockPrice::getBaseDate))
+                                .map(p -> new PricePointResponse(p.getBaseDate(), p.getClosePrice()))
+                                .toList()
                 ));
 
         Map<Long, Long> holdingQtyMap = holdings.stream()
@@ -248,16 +292,12 @@ public class DailyStartService {
                 ));
 
         /* 종목별 최신 가격 1건만 남김 */
-        Map<Long, StockPrice> latestPriceMap = prices.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getStock().getStockId(),
-                        p -> p,
-                        (a, b) -> a.getBaseDate() > b.getBaseDate() ? a : b
-                ));
+        Map<Long, StockPrice> latestPriceMap = buildLatestPriceMap(latestPrices);
 
         List<TradingStockResponse> stocks = latestPriceMap.values().stream()
                 .map(price -> {
                     Long stockId = price.getStock().getStockId();
+                    BigDecimal changeAmount = calculateChangeAmount(price, groupedHistoryPrices.getOrDefault(stockId, List.of()));
 
                     return new TradingStockResponse(
                             stockId,
@@ -265,13 +305,13 @@ public class DailyStartService {
                             holdingQtyMap.getOrDefault(stockId, 0L),
                             price.getClosePrice(),
                             price.getReturnPct(),
-                            BigDecimal.ZERO, // TODO 전일 대비 금액 계산
+                            changeAmount,
                             priceHistoryMap.getOrDefault(stockId, List.of())
                     );
                 })
                 .toList();
 
-        BigDecimal stockValue = calculateStockValue(holdings, prices);
+        BigDecimal stockValue = calculateStockValue(holdings, latestPrices);
         BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
 
         return new TradingScreenResponse(
@@ -289,12 +329,7 @@ public class DailyStartService {
      */
     private BigDecimal calculateStockValue(List<Holding> holdings, List<StockPrice> prices) {
 
-        Map<Long, StockPrice> latestPriceMap = prices.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getStock().getStockId(),
-                        p -> p,
-                        (a, b) -> a.getBaseDate() > b.getBaseDate() ? a : b
-                ));
+        Map<Long, StockPrice> latestPriceMap = buildLatestPriceMap(prices);
 
         return holdings.stream()
                 .map(h -> {
@@ -307,5 +342,34 @@ public class DailyStartService {
                     return latestPrice.getClosePrice().multiply(BigDecimal.valueOf(h.getQty()));
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Map<Long, StockPrice> buildLatestPriceMap(List<StockPrice> prices) {
+        return prices.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getStock().getStockId(),
+                        p -> p,
+                        (a, b) -> Integer.compare(a.getBaseDate(), b.getBaseDate()) > 0 ? a : b
+                ));
+    }
+
+    private BigDecimal calculateChangeAmount(StockPrice latestPrice, List<StockPrice> stockPrices) {
+        if (stockPrices == null || stockPrices.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        List<StockPrice> sorted = stockPrices.stream()
+                .sorted(Comparator.comparing(StockPrice::getBaseDate))
+                .toList();
+
+        for (int i = 0; i < sorted.size(); i++) {
+            StockPrice current = sorted.get(i);
+            if (current.getBaseDate().equals(latestPrice.getBaseDate()) && i > 0) {
+                BigDecimal prevPrice = sorted.get(i - 1).getClosePrice();
+                return latestPrice.getClosePrice().subtract(prevPrice);
+            }
+        }
+
+        return BigDecimal.ZERO;
     }
 }

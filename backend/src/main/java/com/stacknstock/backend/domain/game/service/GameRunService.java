@@ -116,6 +116,10 @@ public class GameRunService {
          */
         List<Stock> stocks = stockRepository.findAll();
 
+        if (stocks.isEmpty()) {
+            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+        }
+
         List<StockPrice> stockPrices = new ArrayList<>();
 
         for (Stock stock : stocks) {
@@ -204,7 +208,7 @@ public class GameRunService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         // 3) 현재 게임의 보유 주식 목록 조회
-        List<Holding> holdings = holdingRepository.findByRunRunId(gameRun.getRunId());
+        List<Holding> holdings = holdingRepository.findHoldingsWithStock(gameRun.getRunId());
 
         /*
          * N+1 문제 방지
@@ -215,6 +219,17 @@ public class GameRunService {
         List<Long> stockIds = holdings.stream()
                 .map(h -> h.getStock().getStockId())
                 .toList();
+
+        if (stockIds.isEmpty()) {
+            return new PortfolioResponse(
+                    gameRun.getRunId(),
+                    runState.getCurrentDayNo(),
+                    runState.getCashBalance(),
+                    runState.getCashBalance(),
+                    List.of(),
+                    List.of()
+            );
+        }
 
         List<StockPrice> prices = stockPriceRepository
                 .findByRunRunIdAndBaseDateAndStockStockIdIn(
@@ -228,7 +243,7 @@ public class GameRunService {
                 .collect(Collectors.toMap(
                         p -> p.getStock().getStockId(),
                         p -> p,
-                        (p1, p2) -> p2
+                        (p1, p2) -> Integer.compare(p1.getBaseDate(), p2.getBaseDate()) > 0 ? p1 : p2
                 ));
 
         List<PortfolioStockResponse> holdingResponses = new ArrayList<>();
@@ -299,6 +314,9 @@ public class GameRunService {
 
     private void generateScenarios(GameRun gameRun) {
         List<GameCase> allCases = gameCaseRepository.findAll();
+        if (allCases.size() < 80) {
+            throw new BusinessException(ErrorCode.GAME_CASE_NOT_FOUND);
+        }
         Collections.shuffle(allCases);
 
         List<RandomEvent> eventPool = randomEventRepository.findAll();
