@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,8 +51,10 @@ public class TradeService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // 💡 [핵심 1] 59개 중복 조회 에러 해결: 가장 최근 게임 1개만 조회하도록 메서드 변경!
+        // 🚨 RunStateRepository 인터페이스에도 이 이름으로 메서드를 반드시 추가해야 합니다!
         RunState runState = runStateRepository
-                .findByRunUserUserId(userId)
+                .findFirstByRunUserUserIdOrderByRunRunIdDesc(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
         GameRun run = runState.getRun();
@@ -140,15 +143,13 @@ public class TradeService {
             }
 
             BigDecimal amount = price.multiply(BigDecimal.valueOf(quantity));
-
             Holding holding = holdingMap.get(stockId);
 
             /*
              * ===============================
-             * BUY
+             * BUY (매수)
              * ===============================
              */
-
             if (side == TradeSide.BUY) {
 
                 if (runState.getCashBalance().compareTo(amount) < 0) {
@@ -161,26 +162,34 @@ public class TradeService {
                 );
 
                 if (holding == null) {
-
+                    // 신규 매수
                     Stock stock = stockMap.get(stockId);
 
                     holding = Holding.builder()
                             .run(run)
                             .stock(stock)
                             .qty(quantity)
+                            .avgCost(price) // 💡 [핵심 2] 신규 매수 시 평단가 누락 버그 수정!
                             .build();
 
                     holdingRepository.save(holding);
-
                     holdingMap.put(stockId, holding);
 
                 } else {
+                    // 💡 [핵심 2] 추가 매수 시 새로운 평단가 계산 로직 추가!
+                    // 식: (기존수량*기존평단가 + 신규수량*신규가격) / 총수량
+                    BigDecimal oldTotalCost = holding.getAvgCost().multiply(BigDecimal.valueOf(holding.getQty()));
+                    BigDecimal newTotalCost = price.multiply(BigDecimal.valueOf(quantity));
+                    BigDecimal totalQty = BigDecimal.valueOf(holding.getQty() + quantity);
+
+                    BigDecimal newAvgCost = oldTotalCost.add(newTotalCost).divide(totalQty, 2, RoundingMode.HALF_UP);
 
                     Holding updatedHolding = Holding.builder()
                             .holdingId(holding.getHoldingId())
                             .run(holding.getRun())
                             .stock(holding.getStock())
                             .qty(holding.getQty() + quantity)
+                            .avgCost(newAvgCost) // 💡 새로 계산된 평단가 업데이트
                             .build();
 
                     holdingRepository.save(updatedHolding);
@@ -191,12 +200,10 @@ public class TradeService {
 
             /*
              * ===============================
-             * SELL
+             * SELL (매도)
              * ===============================
              */
-
             else {
-
                 if (holding == null || holding.getQty() < quantity) {
                     throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
                 }
@@ -207,12 +214,12 @@ public class TradeService {
                     holdingRepository.delete(holding);
                     holdingMap.remove(stockId);
                 } else {
-
                     Holding updatedHolding = Holding.builder()
                             .holdingId(holding.getHoldingId())
                             .run(holding.getRun())
                             .stock(holding.getStock())
                             .qty(remainQty)
+                            .avgCost(holding.getAvgCost()) // 매도 시 평단가는 그대로 유지
                             .build();
 
                     holdingRepository.save(updatedHolding);
@@ -220,6 +227,7 @@ public class TradeService {
                     holding = updatedHolding;
                 }
 
+                // 💡 매도 시 현금은 T+3 시스템에 의해 여기(TradeService)서 즉시 증가하지 않음. 정상!
             }
 
             /*
@@ -227,7 +235,6 @@ public class TradeService {
              * Trade 로그 저장
              * ===============================
              */
-
             Trade trade = Trade.builder()
                     .run(run)
                     .day(currentDay)
@@ -236,7 +243,7 @@ public class TradeService {
                     .execQty(BigDecimal.valueOf(quantity))
                     .execPrice(price)
                     .execAmount(amount)
-                    .settleDayNo(side == TradeSide.SELL ? currentDayNo + 3 : null)
+                    .settleDayNo(side == TradeSide.SELL ? currentDayNo + 3 : null) // 💡 매도는 3일 뒤 정산
                     .build();
 
             tradeRepository.save(trade);
@@ -247,7 +254,6 @@ public class TradeService {
          * 7. RunState 스냅샷 저장
          * ===============================
          */
-
         runStateRepository.save(runState);
     }
 }
