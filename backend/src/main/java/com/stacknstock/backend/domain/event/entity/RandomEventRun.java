@@ -12,7 +12,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "random_event_run")
 @Getter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class RandomEventRun extends BaseEntity {
 
     @Id
@@ -32,8 +34,8 @@ public class RandomEventRun extends BaseEntity {
     @JoinColumn(name = "event_id", nullable = false)
     private RandomEvent event;
 
-    @Column(name = "result_json", columnDefinition = "jsonb")
-    private String resultJson;
+    @Column(name = "result")
+    private Boolean result;
 
     @Column(name = "cash_delta")
     private BigDecimal cashDelta;
