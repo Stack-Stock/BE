@@ -19,4 +19,7 @@ public interface RunStateRepository extends JpaRepository<RunState, Long> {
      *          -> userId
      */
     Optional<RunState> findByRunUserUserId(Long userId);
+
+    // RunStateRepository.java 내부에 추가
+    Optional<RunState> findFirstByRunUserUserIdOrderByRunRunIdDesc(Long userId);
 }
