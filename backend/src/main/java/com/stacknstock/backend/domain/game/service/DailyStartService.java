@@ -2,6 +2,7 @@ package com.stacknstock.backend.domain.game.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
 import com.stacknstock.backend.domain.game.dto.ArticleArchiveResponse;
@@ -47,7 +48,8 @@ public class DailyStartService {
     private final DayStateRepository dayStateRepository;
 
     /** JSON 파싱용 ObjectMapper */
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     /**
      * 하루 시작 API
@@ -84,9 +86,15 @@ public class DailyStartService {
 
         /* 조회용 데이터 구성 */
         List<Holding> holdings = holdingRepository.findPortfolio(runId);
+        List<StockPrice> prices = stockPriceRepository.findAllPrices(runId);
+
+        if (prices.isEmpty()) {
+            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+        }
+
         ArticleArchiveResponse articleArchive = buildArticleArchive(runId, dayNo);
-        PortfolioResponse portfolio = buildPortfolio(runId, dayNo, runState, holdings);
-        TradingScreenResponse tradingScreen = buildTradingScreen(runId, runState, holdings);
+        PortfolioResponse portfolio = buildPortfolio(runId, dayNo, runState, holdings, prices);
+        TradingScreenResponse tradingScreen = buildTradingScreen(runState, holdings, prices);
 
         /**
          * 오늘 랜덤 이벤트 ID 조회
@@ -199,14 +207,15 @@ public class DailyStartService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+            e.printStackTrace(); // 또는 log.error
+            throw new BusinessException(ErrorCode.JSON_PARSE_ERROR);
         }
     }
 
     /** 포트폴리오 응답 구성 */
-    private PortfolioResponse buildPortfolio(Long runId, Integer dayNo, RunState runState, List<Holding> holdings) {
+    private PortfolioResponse buildPortfolio(Long runId, Integer dayNo, RunState runState, List<Holding> holdings, List<StockPrice> prices) {
 
-        BigDecimal stockValue = calculateStockValue(holdings);
+        BigDecimal stockValue = calculateStockValue(holdings, prices);
         BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
 
         return new PortfolioResponse(
@@ -220,13 +229,7 @@ public class DailyStartService {
     }
 
     /** 거래 화면 응답 구성 */
-    private TradingScreenResponse buildTradingScreen(Long runId, RunState runState, List<Holding> holdings) {
-
-        List<StockPrice> prices = stockPriceRepository.findAllPrices(runId);
-
-        if (prices.isEmpty()) {
-            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
-        }
+    private TradingScreenResponse buildTradingScreen(RunState runState, List<Holding> holdings, List<StockPrice> prices) {
 
         Map<Long, List<PricePointResponse>> priceHistoryMap = prices.stream()
                 .collect(Collectors.groupingBy(
@@ -268,7 +271,7 @@ public class DailyStartService {
                 })
                 .toList();
 
-        BigDecimal stockValue = calculateStockValue(holdings);
+        BigDecimal stockValue = calculateStockValue(holdings, prices);
         BigDecimal totalAsset = runState.getCashBalance().add(stockValue);
 
         return new TradingScreenResponse(
@@ -279,10 +282,30 @@ public class DailyStartService {
         );
     }
 
-    /** 보유 주식 평가금 계산 */
-    private BigDecimal calculateStockValue(List<Holding> holdings) {
+    /**
+     * 보유 주식 평가금 계산
+     *
+     * 평균단가가 아니라 현재가 기준으로 계산해야 한다.
+     */
+    private BigDecimal calculateStockValue(List<Holding> holdings, List<StockPrice> prices) {
+
+        Map<Long, StockPrice> latestPriceMap = prices.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getStock().getStockId(),
+                        p -> p,
+                        (a, b) -> a.getBaseDate() > b.getBaseDate() ? a : b
+                ));
+
         return holdings.stream()
-                .map(h -> h.getAvgCost().multiply(BigDecimal.valueOf(h.getQty())))
+                .map(h -> {
+                    StockPrice latestPrice = latestPriceMap.get(h.getStock().getStockId());
+
+                    if (latestPrice == null) {
+                        throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+                    }
+
+                    return latestPrice.getClosePrice().multiply(BigDecimal.valueOf(h.getQty()));
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

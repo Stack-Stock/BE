@@ -37,7 +37,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 //	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
 	compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+//	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
