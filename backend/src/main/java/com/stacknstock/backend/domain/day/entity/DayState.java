@@ -22,6 +22,7 @@ public class DayState extends SnapshotEntity implements Persistable<Long> {
 
     // 💡 [핵심] JPA가 DB에 저장하지 않는 임시 플래그
     @Transient
+    @Builder.Default
     private boolean isNewRecord = true;
 
     // 💡 Persistable 구현: 내 ID가 무엇인지 JPA에게 알려줌

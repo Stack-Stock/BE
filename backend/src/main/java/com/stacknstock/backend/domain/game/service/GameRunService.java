@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GameRunService {
 
-    private static final BigDecimal INITIAL_CASH = BigDecimal.valueOf(3_000_000L); // 초기 자본
+    private static final BigDecimal INITIAL_CASH = BigDecimal.valueOf(1_000_000L); // 초기 자본
     private static final Integer INITIAL_DAY_NO = 1; // 시작 일차
     private static final Integer INITIAL_AP = 2; // 기본 AP
     private static final Integer INITIAL_STUDY_COUNT = 0; // 초기 공부 횟수
