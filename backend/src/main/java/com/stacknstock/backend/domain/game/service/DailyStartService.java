@@ -1,5 +1,7 @@
 package com.stacknstock.backend.domain.game.service;
 
+import com.stacknstock.backend.domain.day.entity.DayResult;
+import com.stacknstock.backend.domain.day.repository.DayResultRepository;
 import com.stacknstock.backend.domain.game.dto.DaySummaryResponse;
 import com.stacknstock.backend.domain.game.dto.PortfolioStockResponse;
 
@@ -51,6 +53,7 @@ public class DailyStartService {
     private final StockPriceRepository stockPriceRepository;
     private final TradeRepository tradeRepository;
     private final DayStateRepository dayStateRepository;
+    private final DayResultRepository dayResultRepository;
 
     /** JSON 파싱용 ObjectMapper */
     private final ObjectMapper objectMapper = new ObjectMapper()
@@ -111,7 +114,13 @@ public class DailyStartService {
                 .findEventIdByRunIdAndDayNo(runId, dayNo)
                 .orElse(null);
 
-        DaySummaryResponse daySummary = null;
+        DaySummaryResponse daySummary = buildDaySummary(
+                runId,
+                dayNo,
+                runState,
+                holdings,
+                latestPrices
+        );
 
         return new DailyStartResponse(
                 daySummary,
@@ -169,6 +178,51 @@ public class DailyStartService {
         }
 
         return settlement;
+    }
+
+    /**
+     * 전날 결산 요약 생성
+     *
+     * - 전날 대비 현금 변화
+     * - 전날 대비 주식 평가금 변화
+     * - 전날 대비 총 자산 변화
+     */
+    private DaySummaryResponse buildDaySummary(
+            Long runId,
+            Integer dayNo,
+            RunState runState,
+            List<Holding> holdings,
+            List<StockPrice> latestPrices
+    ) {
+
+        // 전날 확정 결과 조회
+        DayResult yesterdayResult = dayResultRepository
+                .findByRunRunIdAndDayNo(runId, dayNo - 1)
+                .orElse(null);
+
+        if (yesterdayResult == null) {
+            return null;
+        }
+
+        // 전날 값
+        BigDecimal yesterdayCash = yesterdayResult.getCashBalance();
+        BigDecimal yesterdayStockValue = yesterdayResult.getStockValue();
+
+        // 오늘 값
+        BigDecimal todayCash = runState.getCashBalance();
+        BigDecimal todayStockValue = calculateStockValue(holdings, latestPrices);
+
+        // 변화량 계산
+        BigDecimal cashDiff = todayCash.subtract(yesterdayCash);
+        BigDecimal stockDiff = todayStockValue.subtract(yesterdayStockValue);
+        BigDecimal totalDiff = cashDiff.add(stockDiff);
+
+        return new DaySummaryResponse(
+                yesterdayResult.getDayNo(),
+                cashDiff,
+                stockDiff,
+                totalDiff
+        );
     }
 
     /** 기사 아카이브 구성 */
