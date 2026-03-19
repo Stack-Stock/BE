@@ -18,7 +18,7 @@ public class ScenarioDayController {
 
     private final ScenarioDayService scenarioDayService;
 
-    @PostMapping("/police")
+    @PatchMapping("/police")
     @Operation(summary = "경찰 출두 이벤트 예약", description = "3일 뒤 경찰 출두 이벤트를 확정합니다.")
     public ResponseEntity<Void> triggerPoliceEvent(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -32,7 +32,7 @@ public class ScenarioDayController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/guilty")
+    @PatchMapping("/guilty")
     @Operation(summary = "죄책감 이벤트 예약", description = "1일, 2일 뒤 죄책감 이벤트를 확정합니다.")
     public ResponseEntity<Void> triggerGuiltyEvent(
             @AuthenticationPrincipal CustomUserDetails userDetails,
