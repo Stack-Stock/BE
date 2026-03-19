@@ -228,6 +228,13 @@ public class ResumeService {
         boolean hasInspiration = runState.getInspirationCount() > 0;
 
         /**
+         * 이어하기 시 랜덤 이벤트 조회 (상태 변경 없음)
+         */
+        Long randomEventId = scenarioDayRepository
+                .findEventIdByRunIdAndDayNo(runId, dayNo)
+                .orElse(null);
+
+        /**
          * 이어하기 응답
          * - 상태 변경 없이 조회만 수행
          */
@@ -236,7 +243,7 @@ public class ResumeService {
                 portfolio,
                 articleArchive,
                 tradingScreen,
-                false, // 이어하기에서는 이벤트 트리거 없음
+                randomEventId,
                 BigDecimal.ZERO, // 정산 금액은 DailyStartService에서만 처리
                 hasInspiration
         );
