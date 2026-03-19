@@ -2,9 +2,7 @@ package com.stacknstock.backend.domain.day.entity;
 
 import com.stacknstock.backend.global.entity.SnapshotEntity;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.domain.Persistable;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -12,6 +10,8 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "day_state")
 public class DayState extends SnapshotEntity implements Persistable<Long> {
@@ -22,6 +22,7 @@ public class DayState extends SnapshotEntity implements Persistable<Long> {
 
     // 💡 [핵심] JPA가 DB에 저장하지 않는 임시 플래그
     @Transient
+    @Builder.Default
     private boolean isNewRecord = true;
 
     // 💡 Persistable 구현: 내 ID가 무엇인지 JPA에게 알려줌
