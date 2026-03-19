@@ -6,22 +6,31 @@ import com.stacknstock.backend.domain.action.entity.Action;
 import com.stacknstock.backend.domain.action.enums.ActionType;
 import com.stacknstock.backend.domain.action.repository.ActionRepository;
 import com.stacknstock.backend.domain.day.entity.Day;
+import com.stacknstock.backend.domain.day.entity.DayResult;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
+import com.stacknstock.backend.domain.day.repository.DayResultRepository;
 import com.stacknstock.backend.domain.day.repository.DayStateRepository;
 import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.domain.game.entity.RunState;
 import com.stacknstock.backend.domain.game.enums.RunStatus;
 import com.stacknstock.backend.domain.game.repository.GameRunRepository;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
+import com.stacknstock.backend.domain.trade.entity.Holding;
+import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
 import com.stacknstock.backend.domain.scenario.entity.GameCase;
 import com.stacknstock.backend.domain.scenario.entity.ScenarioDay;
+import com.stacknstock.backend.domain.stock.entity.StockPrice;
+import com.stacknstock.backend.domain.stock.repository.StockPriceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.stacknstock.backend.global.exception.BusinessException;
 import com.stacknstock.backend.global.exception.ErrorCode;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +44,9 @@ public class ActionService {
     private final ActionRepository actionRepository;
     private final com.stacknstock.backend.domain.scenario.repository.ScenarioDayRepository scenarioDayRepository;
     private final com.stacknstock.backend.domain.scenario.repository.GameCaseRepository gameCaseRepository;
+    private final DayResultRepository dayResultRepository;
+    private final HoldingRepository holdingRepository;
+    private final StockPriceRepository stockPriceRepository;
 
     /**
      * 행동 실행 진입점
@@ -280,36 +292,73 @@ public class ActionService {
      */
     private ActionResultResponse executeSleep(RunState runState, DayState dayState) {
 
+        /* 현재 run, day 정보 */
+        GameRun run = runState.getRun();
+        int currentDay = runState.getCurrentDayNo();
+
+        /* 이미 저장된 경우 중복 방지 */
+        if (!dayResultRepository.existsByRunRunIdAndDayNo(run.getRunId(), currentDay)) {
+
+            /* 보유 주식 조회 */
+            List<Holding> holdings = holdingRepository.findHoldingsWithStock(run.getRunId());
+
+            /* 현재 가격 조회 */
+            List<StockPrice> prices = stockPriceRepository
+                    .findByRunRunIdAndBaseDateAndStockStockIdIn(
+                            run.getRunId(),
+                            currentDay,
+                            holdings.stream().map(h -> h.getStock().getStockId()).toList()
+                    );
+
+            /* 가격 map 구성 */
+            var priceMap = prices.stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            p -> p.getStock().getStockId(),
+                            p -> p
+                    ));
+
+            /* 주식 평가금 계산 */
+            BigDecimal stockValue = holdings.stream()
+                    .map(h -> {
+                        StockPrice price = priceMap.get(h.getStock().getStockId());
+                        if (price == null) return BigDecimal.ZERO;
+                        return price.getClosePrice().multiply(BigDecimal.valueOf(h.getQty()));
+                    })
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal cash = runState.getCashBalance();
+            BigDecimal totalAsset = cash.add(stockValue);
+
+            /* DayResult 저장 */
+            DayResult result = DayResult.builder()
+                    .run(run)
+                    .dayNo(currentDay)
+                    .cashBalance(cash)
+                    .stockValue(stockValue)
+                    .totalAsset(totalAsset)
+                    .build();
+
+            dayResultRepository.save(result);
+        }
+
         /* 다음 날로 이동 */
-        int nextDay = runState.getCurrentDayNo() + 1;
+        int nextDay = currentDay + 1;
         runState.setCurrentDayNo(nextDay);
 
-        /* RunState 스냅샷 저장 */
         runStateRepository.save(runState);
 
-        /* 다음 Day 조회 */
+        /* 다음 Day 조회 또는 생성 */
         Day nextDayEntity = dayRepository
-                .findByGameRunRunIdAndDayNo(runState.getRun().getRunId(), nextDay)
+                .findByGameRunRunIdAndDayNo(run.getRunId(), nextDay)
                 .orElseGet(() -> dayRepository.save(
-                        Day.create(runState.getRun(), nextDay, 2)
+                        Day.create(run, nextDay, 2)
                 ));
 
-        /*
-         * 다음 DayState 조회 또는 생성
-         *
-         * DayState는 각 일차의 상태를 저장하는 스냅샷 테이블이므로,
-         * 다음 날로 처음 이동하는 시점에는 아직 row가 없을 수 있다.
-         * 따라서 없으면 새로 생성해야 한다.
-         */
+        /* DayState 조회 또는 생성 */
         DayState nextDayState = dayStateRepository
                 .findById(nextDayEntity.getDayId())
                 .orElseGet(() -> DayState.create(nextDayEntity, 2, false));
 
-        /*
-         * 이미 존재하는 경우에도 하루 시작 상태로 맞춘다.
-         * - AP 초기화
-         * - 공부 여부 초기화
-         */
         nextDayState.setApRemaining(2);
         nextDayState.setStudyDone(false);
 
