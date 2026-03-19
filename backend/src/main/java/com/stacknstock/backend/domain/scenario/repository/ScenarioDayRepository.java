@@ -42,4 +42,19 @@ public interface ScenarioDayRepository extends JpaRepository<ScenarioDay, Long> 
     );
 
     Optional<ScenarioDay> findByRunRunIdAndDayNo(Long runId, Integer dayNo);
+
+
+    /**
+     * 특정 run의 특정 날짜의 랜덤이벤트 아이디 받아오기
+     * @param runId
+     * @param dayNo
+     * @return
+     */
+    @Query("""
+        SELECT sd.event.eventId
+        FROM ScenarioDay sd
+        WHERE sd.run.runId = :runId
+          AND sd.dayNo = :dayNo
+    """)
+    Optional<Long> findEventIdByRunIdAndDayNo(Long runId, Integer dayNo);
 }

@@ -20,8 +20,8 @@ public record DailyStartResponse(
         @Schema(description = "주식 거래 화면 정보")
         TradingScreenResponse tradingScreen,
 
-        @Schema(description = "오늘 랜덤 이벤트 발생 여부", example = "false")
-        Boolean hasRandomEvent,
+        @Schema(description = "오늘 랜덤 이벤트 아이디", example = "1")
+        Long randomEventId,
 
         @Schema(description = "오늘 현금화되는 T+3 정산 금액", example = "120000")
         BigDecimal settlementAmount,

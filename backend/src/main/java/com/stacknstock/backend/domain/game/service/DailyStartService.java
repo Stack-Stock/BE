@@ -88,12 +88,19 @@ public class DailyStartService {
         PortfolioResponse portfolio = buildPortfolio(runId, dayNo, runState, holdings);
         TradingScreenResponse tradingScreen = buildTradingScreen(runId, runState, holdings);
 
+        /**
+         * 오늘 랜덤 이벤트 ID 조회
+         */
+        Long randomEventId = scenarioDayRepository
+                .findEventIdByRunIdAndDayNo(runId, dayNo)
+                .orElse(null);
+
         return new DailyStartResponse(
                 null,   // TODO DaySummary 설계 후 추가
                 portfolio,
                 articleArchive,
                 tradingScreen,
-                false,  // TODO RandomEvent 여부 반영
+                randomEventId,
                 settlement,
                 hasInspiration
         );
