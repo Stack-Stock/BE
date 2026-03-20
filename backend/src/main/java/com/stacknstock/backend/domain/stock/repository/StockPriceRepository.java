@@ -32,15 +32,15 @@ public interface StockPriceRepository extends JpaRepository<StockPrice, Long> {
     List<StockPrice> findLatestPrices(Long runId, Integer dayNo);
 
     /**
-     * 게임 시작 이후 전체 주가 히스토리 조회
-     *
-     * - 그래프 데이터 생성용
+     * 게임 시작 이후 '현재 일차(dayNo)까지의' 전체 주가 히스토리 조회
      */
     @Query("""
         select sp
         from StockPrice sp
         join fetch sp.stock
         where sp.run.runId = :runId
+          and sp.baseDate <= :dayNo 
+        order by sp.baseDate asc
     """)
-    List<StockPrice> findPriceHistory(Long runId);
+    List<StockPrice> findPriceHistory(Long runId, Integer dayNo); // 파라미터 추가!
 }
