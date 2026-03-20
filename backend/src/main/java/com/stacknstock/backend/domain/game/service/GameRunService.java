@@ -61,6 +61,7 @@ public class GameRunService {
     private final GameCaseRepository gameCaseRepository;
     private final RandomEventRepository randomEventRepository;
     private final ScenarioDayRepository scenarioDayRepository;
+    private final ObjectMapper mapper;
 
     /**
     새 게임 런 시작하기
@@ -451,7 +452,13 @@ public class GameRunService {
             }
         }
 
-        stockPriceRepository.saveAll(allPrices);
+        int batchSize = 100;
+
+        for (int i = 0; i < allPrices.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, allPrices.size());
+            stockPriceRepository.saveAll(allPrices.subList(i, end));
+            stockPriceRepository.flush();
+        }
     }
 
     /* Json 파싱 */
@@ -468,8 +475,6 @@ public class GameRunService {
         if (json == null) return result;
 
         try {
-            ObjectMapper mapper = new ObjectMapper();
-
             List<Map<String, Object>> list =
                     mapper.readValue(json, new TypeReference<>() {});
 
