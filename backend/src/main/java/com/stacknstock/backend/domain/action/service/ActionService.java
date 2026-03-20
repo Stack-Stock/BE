@@ -22,6 +22,7 @@ import com.stacknstock.backend.domain.scenario.entity.GameCase;
 import com.stacknstock.backend.domain.scenario.entity.ScenarioDay;
 import com.stacknstock.backend.domain.stock.entity.StockPrice;
 import com.stacknstock.backend.domain.stock.repository.StockPriceRepository;
+import com.stacknstock.backend.domain.event.repository.RandomEventRunRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +48,7 @@ public class ActionService {
     private final DayResultRepository dayResultRepository;
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
+    private final RandomEventRunRepository randomEventRunRepository;
 
     /**
      * 행동 실행 진입점
@@ -122,7 +124,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                gameCase.getPhone()
+                gameCase.getPhone(),
+                null
         );
     }
 
@@ -175,7 +178,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                gameCase.getTv()
+                gameCase.getTv(),
+                null
         );
     }
 
@@ -228,7 +232,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                gameCase.getNewspaper()
+                gameCase.getNewspaper(),
+                null
         );
     }
 
@@ -267,6 +272,9 @@ public class ActionService {
         /* DayState 스냅샷 저장 */
         dayStateRepository.save(dayState);
 
+        /* RunState 스냅샷 저장 (총 공부 횟수 + 1) */
+        runState.setTotalStudyCnt(runState.getTotalStudyCnt() + 1);
+
         /* 행동 로그 저장 */
         Action action = Action.builder()
                 .day(day)
@@ -283,7 +291,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                "공부를 진행했습니다."
+                "공부를 진행했습니다.",
+                null
         );
     }
 
@@ -297,49 +306,97 @@ public class ActionService {
         GameRun run = runState.getRun();
         int currentDay = runState.getCurrentDayNo();
 
-        /* 이미 저장된 경우 중복 방지 */
-        if (!dayResultRepository.existsByRunRunIdAndDayNo(run.getRunId(), currentDay)) {
+        /* 보유 주식 조회 */
+        List<Holding> holdings = holdingRepository.findHoldingsWithStock(run.getRunId());
 
-            /* 보유 주식 조회 */
-            List<Holding> holdings = holdingRepository.findHoldingsWithStock(run.getRunId());
+        /* 현재 가격 조회 */
+        List<StockPrice> prices = stockPriceRepository
+                .findByRunRunIdAndBaseDateAndStockStockIdIn(
+                        run.getRunId(),
+                        currentDay,
+                        holdings.stream().map(h -> h.getStock().getStockId()).toList()
+                );
 
-            /* 현재 가격 조회 */
-            List<StockPrice> prices = stockPriceRepository
-                    .findByRunRunIdAndBaseDateAndStockStockIdIn(
-                            run.getRunId(),
-                            currentDay,
-                            holdings.stream().map(h -> h.getStock().getStockId()).toList()
-                    );
+        /* 가격 map 구성 */
+        var priceMap = prices.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        p -> p.getStock().getStockId(),
+                        p -> p
+                ));
 
-            /* 가격 map 구성 */
-            var priceMap = prices.stream()
-                    .collect(java.util.stream.Collectors.toMap(
-                            p -> p.getStock().getStockId(),
-                            p -> p
-                    ));
+        /* 주식 평가금 계산 */
+        BigDecimal stockValue = holdings.stream()
+                .map(h -> {
+                    StockPrice price = priceMap.get(h.getStock().getStockId());
+                    if (price == null) return BigDecimal.ZERO;
+                    return price.getClosePrice().multiply(BigDecimal.valueOf(h.getQty()));
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            /* 주식 평가금 계산 */
-            BigDecimal stockValue = holdings.stream()
-                    .map(h -> {
-                        StockPrice price = priceMap.get(h.getStock().getStockId());
-                        if (price == null) return BigDecimal.ZERO;
-                        return price.getClosePrice().multiply(BigDecimal.valueOf(h.getQty()));
-                    })
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal cash = runState.getCashBalance();
+        BigDecimal totalAsset = cash.add(stockValue);
 
-            BigDecimal cash = runState.getCashBalance();
-            BigDecimal totalAsset = cash.add(stockValue);
+        /*
+         만약 총 자산이 마이너스가 되었다면
+         -> 런 종료 후 파산 엔딩(4)으로 넘어가기
+         */
+        if (totalAsset.compareTo(BigDecimal.ZERO) < 0) {
 
-            /* DayResult 저장 */
-            DayResult result = DayResult.builder()
-                    .run(run)
-                    .dayNo(currentDay)
-                    .cashBalance(cash)
-                    .stockValue(stockValue)
-                    .totalAsset(totalAsset)
-                    .build();
+            // 런 종료
+            run.setStatus(RunStatus.ENDED);
+            gameRunRepository.save(run);
 
-            dayResultRepository.save(result);
+            return new ActionResultResponse(
+                    runState.getCurrentDayNo(),
+                    dayState.getApRemaining(),
+                    runState.getCashBalance(),
+                    "공부를 진행했습니다.",
+                    4
+            );
+        }
+
+        /* DayResult 저장 */
+        DayResult result = DayResult.builder()
+                .run(run)
+                .dayNo(currentDay)
+                .cashBalance(cash)
+                .stockValue(stockValue)
+                .totalAsset(totalAsset)
+                .build();
+
+        dayResultRepository.save(result);
+
+
+        /* ENDING 확인 */
+        if (currentDay == 80) {
+
+            // 런 종료
+            run.setStatus(RunStatus.ENDED);
+            gameRunRepository.save(run);
+
+            Integer totalStudy = runState.getTotalStudyCnt();
+
+            Integer endingType;
+
+            if (totalStudy <= 3) {
+                // 5번 엔딩 : 졸업 불가! 공부 3회
+                endingType = 5;
+            } else if (totalAsset.compareTo(BigDecimal.valueOf(10_000_000)) >= 0) {
+                // 1번 엔딩 : 1000만원 이상 벌기
+                endingType = 1;
+            } else if (totalAsset.compareTo(BigDecimal.valueOf(5_000_000)) >= 0) {
+                // 2번 엔딩 : 500만원 벌기
+                endingType = 2;
+            } else endingType = 3; // 3번 엔딩 : 500만원은 못 벌었지만 파산은 면했다.
+
+            return new ActionResultResponse(
+                    runState.getCurrentDayNo(),
+                    dayState.getApRemaining(),
+                    runState.getCashBalance(),
+                    "공부를 진행했습니다.",
+                    endingType
+            );
+
         }
 
         /* 다음 날로 이동 */
@@ -369,7 +426,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 nextDayState.getApRemaining(),
                 runState.getCashBalance(),
-                "다음 날로 이동했습니다."
+                "다음 날로 이동했습니다.",
+                null
         );
     }
 
@@ -413,7 +471,8 @@ public class ActionService {
                 runState.getCurrentDayNo(),
                 dayState.getApRemaining(),
                 runState.getCashBalance(),
-                "번뜩임을 사용하여 행동력이 증가했습니다."
+                "번뜩임을 사용하여 행동력이 증가했습니다.",
+                null
         );
     }
 

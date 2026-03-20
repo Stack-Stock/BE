@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "game_runs")
 @Getter
+@Setter
+@AllArgsConstructor
 @NoArgsConstructor
 public class GameRun extends BaseEntity {
 

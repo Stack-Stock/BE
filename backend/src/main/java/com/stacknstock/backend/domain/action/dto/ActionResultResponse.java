@@ -17,6 +17,9 @@ public record ActionResultResponse(
         BigDecimal cashBalance,
 
         @Schema(description = "행동 결과 메시지", example = "휴대폰으로 오늘의 뉴스를 확인했습니다.")
-        String message
+        String message,
+
+        @Schema(description = "엔딩 타입 (1~6, 엔딩이 아닐 경우 null)", example = "1", nullable = true)
+        Integer endingType
 ) {
 }
