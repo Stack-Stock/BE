@@ -126,7 +126,7 @@ public class ResumeService {
         List<StockPrice> latestPrices = stockPriceRepository.findLatestPrices(runId, dayNo);
 
         // 전체 가격 히스토리 (그래프용)
-        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId);
+        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId, dayNo);
 
         if (latestPrices.isEmpty()) {
             throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);

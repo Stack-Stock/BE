@@ -97,7 +97,7 @@ public class DailyStartService {
         // 최신 가격 (현재 상태용)
         List<StockPrice> latestPrices = stockPriceRepository.findLatestPrices(runId, dayNo);
         // 전체 가격 히스토리 (그래프용)
-        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId);
+        List<StockPrice> historyPrices = stockPriceRepository.findPriceHistory(runId, dayNo);
 
         if (latestPrices.isEmpty()) {
             throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
@@ -408,19 +408,22 @@ public class DailyStartService {
     }
 
     private BigDecimal calculateChangeAmount(StockPrice latestPrice, List<StockPrice> stockPrices) {
-        if (stockPrices == null || stockPrices.isEmpty()) {
+        // 데이터가 없거나 1일 차(과거 데이터가 없음)인 경우 변동액은 0
+        if (stockPrices == null || stockPrices.size() <= 1) {
             return BigDecimal.ZERO;
         }
 
+        // 날짜순으로 정렬
         List<StockPrice> sorted = stockPrices.stream()
                 .sorted(Comparator.comparing(StockPrice::getBaseDate))
                 .toList();
 
-        for (int i = 0; i < sorted.size(); i++) {
-            StockPrice current = sorted.get(i);
-            if (current.getBaseDate().equals(latestPrice.getBaseDate()) && i > 0) {
-                BigDecimal prevPrice = sorted.get(i - 1).getClosePrice();
-                return latestPrice.getClosePrice().subtract(prevPrice);
+        // 가장 마지막 값이 오늘 가격이라고 가정했을 때, 그 직전 값(어제 가격)을 가져옴
+        // (혹시 모를 에러 방지를 위해 latestPrice의 날짜와 비교하는 로직 추가)
+        for (int i = sorted.size() - 1; i >= 1; i--) {
+            if (sorted.get(i).getBaseDate().equals(latestPrice.getBaseDate())) {
+                BigDecimal yesterdayPrice = sorted.get(i - 1).getClosePrice();
+                return latestPrice.getClosePrice().subtract(yesterdayPrice);
             }
         }
 
