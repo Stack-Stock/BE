@@ -57,4 +57,10 @@ public interface ScenarioDayRepository extends JpaRepository<ScenarioDay, Long> 
           AND sd.dayNo = :dayNo
     """)
     Optional<Long> findEventIdByRunIdAndDayNo(Long runId, Integer dayNo);
+
+    /**
+     * 특정 GameRun의 전체 시나리오를 day 순서대로 조회
+     */
+    List<ScenarioDay> findByRunRunIdOrderByDayNoAsc(Long runId);
+
 }

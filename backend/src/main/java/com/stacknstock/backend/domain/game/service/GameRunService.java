@@ -1,5 +1,7 @@
 package com.stacknstock.backend.domain.game.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stacknstock.backend.domain.day.entity.Day;
 import com.stacknstock.backend.domain.day.entity.DayState;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
@@ -356,5 +358,135 @@ public class GameRunService {
         }
 
         scenarioDayRepository.saveAll(scenarioDays);
+    }
+
+    /**
+     * 게임런 최초 생성 시 80일의 주가 변동 데이터 자동 생성
+     */
+    private void generateStockPrices(GameRun gameRun) {
+
+        List<Stock> stocks = stockRepository.findAll();
+
+        if (stocks.isEmpty()) {
+            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+        }
+
+        // scenarioDay 미리 조회 (성능 최적화)
+        List<ScenarioDay> scenarioDays = scenarioDayRepository
+                .findByRunRunIdOrderByDayNoAsc(gameRun.getRunId());
+
+        Map<Integer, ScenarioDay> scenarioMap = scenarioDays.stream()
+                .collect(Collectors.toMap(
+                        ScenarioDay::getDayNo,
+                        s -> s
+                ));
+
+        // stock별 이전 가격 저장
+        Map<Long, BigDecimal> prevPriceMap = new HashMap<>();
+
+        List<StockPrice> allPrices = new ArrayList<>();
+
+        // 1️⃣ Day 1 초기화
+        for (Stock stock : stocks) {
+
+            BigDecimal startPrice = stock.getStartPrice();
+
+            if (startPrice == null) {
+                throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
+            }
+
+            prevPriceMap.put(stock.getStockId(), startPrice);
+
+            allPrices.add(
+                    StockPrice.builder()
+                            .run(gameRun)
+                            .stock(stock)
+                            .baseDate(1)
+                            .closePrice(startPrice)
+                            .returnPct(BigDecimal.ZERO)
+                            .build()
+            );
+        }
+
+        // 2️⃣ Day 2 ~ 80 생성
+        for (int day = 2; day <= 80; day++) {
+
+            ScenarioDay scenarioDay = scenarioMap.get(day);
+
+            // up_down_json 파싱 필요
+            Map<Long, BigDecimal> returnMap = parseReturnMap(scenarioDay);
+
+            for (Stock stock : stocks) {
+
+                Long stockId = stock.getStockId();
+
+                BigDecimal prevPrice = prevPriceMap.get(stockId);
+
+                // 기본 랜덤 변동률
+                BigDecimal returnPct = returnMap.getOrDefault(
+                        stockId,
+                        BigDecimal.valueOf((Math.random() - 0.5) * 0.02) // ±1%
+                );
+
+                BigDecimal newPrice = prevPrice.multiply(
+                        BigDecimal.ONE.add(returnPct)
+                );
+
+                // 소수점 정리 (선택)
+                newPrice = newPrice.setScale(0, BigDecimal.ROUND_HALF_UP);
+
+                prevPriceMap.put(stockId, newPrice);
+
+                allPrices.add(
+                        StockPrice.builder()
+                                .run(gameRun)
+                                .stock(stock)
+                                .baseDate(day)
+                                .closePrice(newPrice)
+                                .returnPct(returnPct)
+                                .build()
+                );
+            }
+        }
+
+        stockPriceRepository.saveAll(allPrices);
+    }
+
+    /* Json 파싱 */
+    private Map<Long, BigDecimal> parseReturnMap(ScenarioDay scenarioDay) {
+
+        Map<Long, BigDecimal> result = new HashMap<>();
+
+        if (scenarioDay == null || scenarioDay.getGameCase() == null) {
+            return result;
+        }
+
+        String json = scenarioDay.getGameCase().getUpDownJson();
+
+        if (json == null) return result;
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            List<Map<String, Object>> list =
+                    mapper.readValue(json, new TypeReference<>() {});
+
+            for (Map<String, Object> item : list) {
+
+                Long stockId = Long.valueOf(item.get("stock_id").toString());
+
+                Object returnObj = item.get("game_return");
+
+                if (returnObj != null) {
+                    BigDecimal returnPct = new BigDecimal(returnObj.toString());
+                    result.put(stockId, returnPct);
+                }
+            }
+
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
+
+        return result;
     }
 }
