@@ -48,7 +48,7 @@ public class ActionService {
     private final DayResultRepository dayResultRepository;
     private final HoldingRepository holdingRepository;
     private final StockPriceRepository stockPriceRepository;
-    private final RandomEventRunRepository randomEventRunRepository;
+    private final int MAX_PLAY_DAY = 80;
 
     /**
      * 행동 실행 진입점
@@ -368,7 +368,7 @@ public class ActionService {
 
 
         /* ENDING 확인 */
-        if (currentDay == 80) {
+        if (currentDay == MAX_PLAY_DAY) {
 
             // 런 종료
             run.setStatus(RunStatus.ENDED);
