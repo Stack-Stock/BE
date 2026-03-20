@@ -36,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -84,6 +85,7 @@ public class GameRunService {
         gameRunRepository.save(gameRun);
 
         generateScenarios(gameRun);
+        generateStockPrices(gameRun);
 
         RunState runState = RunState.create(
                 gameRun,
@@ -433,7 +435,7 @@ public class GameRunService {
                 );
 
                 // 소수점 정리 (선택)
-                newPrice = newPrice.setScale(0, BigDecimal.ROUND_HALF_UP);
+                newPrice = newPrice.setScale(0, RoundingMode.HALF_UP);
 
                 prevPriceMap.put(stockId, newPrice);
 
