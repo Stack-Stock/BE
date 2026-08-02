@@ -77,7 +77,7 @@ public class GameRunService {
          */
         List<GameRun> runningRuns = gameRunRepository.findAllByUserUserIdAndStatus(userId, RunStatus.RUNNING);
         for (GameRun run : runningRuns) {
-            run.updateStatus(RunStatus.ENDED);
+            run.end();
         }
 
         // 새 게임런 생성
@@ -112,40 +112,6 @@ public class GameRunService {
                 .build();
 
         dayStateRepository.save(dayState);
-
-        /**
-         * 초기 주가 데이터 생성
-         * - Day 1 기준으로 모든 종목의 가격을 생성
-         * - stocks 테이블의 basePrice를 기준으로 설정
-         */
-        List<Stock> stocks = stockRepository.findAll();
-
-        if (stocks.isEmpty()) {
-            throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
-        }
-
-        List<StockPrice> stockPrices = new ArrayList<>();
-
-        for (Stock stock : stocks) {
-
-            BigDecimal basePrice = stock.getStartPrice();
-
-            if (basePrice == null) {
-                throw new BusinessException(ErrorCode.STOCK_PRICE_NOT_FOUND);
-            }
-
-            StockPrice stockPrice = StockPrice.builder()
-                    .run(gameRun)
-                    .stock(stock)
-                    .baseDate(INITIAL_DAY_NO)
-                    .closePrice(basePrice)
-                    .returnPct(BigDecimal.ZERO)
-                    .build();
-
-            stockPrices.add(stockPrice);
-        }
-
-        stockPriceRepository.saveAll(stockPrices);
 
         return new StartGameResponse(
                 gameRun.getRunId(),

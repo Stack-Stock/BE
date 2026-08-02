@@ -60,10 +60,10 @@ public class ActionController {
      */
     @PostMapping("/inspiration")
     public ResponseEntity<ActionResultResponse> useInspiration(
-            @AuthenticationPrincipal Long userId
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ResponseEntity.ok(
-                actionService.executeUseInspiration(userId)
+                actionService.executeUseInspiration(userDetails.getUser().getUserId())
         );
     }
 }

@@ -53,4 +53,9 @@ public class GameRun extends BaseEntity {
     public void updateStatus(RunStatus status) {
         this.status = status;
     }
+
+    public void end() {
+        this.status = RunStatus.ENDED;
+        this.endAt = LocalDateTime.now();
+    }
 }
