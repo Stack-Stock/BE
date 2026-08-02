@@ -18,6 +18,7 @@ import com.stacknstock.backend.domain.game.dto.ArticleResponse;
 import com.stacknstock.backend.domain.game.dto.DailyStartResponse;
 import com.stacknstock.backend.domain.game.dto.PortfolioResponse;
 import com.stacknstock.backend.domain.game.entity.RunState;
+import com.stacknstock.backend.domain.game.enums.RunStatus;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
 import com.stacknstock.backend.domain.scenario.entity.GameCase;
 import com.stacknstock.backend.domain.scenario.entity.ScenarioDay;
@@ -72,11 +73,16 @@ public class DailyStartService {
      * - 거래 화면
      */
     @Transactional
-    public DailyStartResponse getDailyStart(Long runId) {
+    public DailyStartResponse getDailyStart(Long userId, Long runId) {
 
         RunState runState = runStateRepository
                 .findByRunRunId(runId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
+
+        if (!runState.getRun().getUser().getUserId().equals(userId)
+                || runState.getRun().getStatus() != RunStatus.RUNNING) {
+            throw new BusinessException(ErrorCode.RUN_NOT_FOUND);
+        }
 
         Integer dayNo = runState.getCurrentDayNo();
 
@@ -147,9 +153,12 @@ public class DailyStartService {
         if (yesterday != null
                 && Boolean.TRUE.equals(yesterday.getStudyDone())
                 && !Boolean.TRUE.equals(today.getStudyDone())
-                && runState.getTotalStudyCnt() % 3 == 0) {
+                && runState.getTotalStudyCnt() > 0
+                && runState.getTotalStudyCnt() % 3 == 0
+                && !isInspirationGranted(today)) {
 
             runState.setInspirationCount(runState.getInspirationCount() + 1);
+            today.setTodaySummary("{\"inspiration_granted\":true}");
             granted = true;
         }
 
@@ -219,10 +228,15 @@ public class DailyStartService {
 
         return new DaySummaryResponse(
                 yesterdayResult.getDayNo(),
+                totalDiff,
                 cashDiff,
-                stockDiff,
-                totalDiff
+                stockDiff
         );
+    }
+
+    private boolean isInspirationGranted(DayState today) {
+        String summary = today.getTodaySummary();
+        return summary != null && summary.contains("\"inspiration_granted\":true");
     }
 
     /** 기사 아카이브 구성 */

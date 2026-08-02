@@ -77,7 +77,7 @@ public class ActionService {
             case INFO_TV -> executeInfoTv(gameRun, runState, day, dayState);
             case INFO_PAPER -> executeInfoPaper(gameRun, runState, day, dayState);
             case STUDY -> executeStudy(gameRun, runState, day, dayState);
-            case SLEEP -> executeSleep(runState, dayState);
+            case SLEEP -> executeSleep(runState, day, dayState);
             case USE_INSPIRATION -> executeUseInspiration(gameRun, runState, day, dayState);
             case EVENT -> throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
         };
@@ -300,7 +300,7 @@ public class ActionService {
     /**
      * 잠 자기
      */
-    private ActionResultResponse executeSleep(RunState runState, DayState dayState) {
+    private ActionResultResponse executeSleep(RunState runState, Day day, DayState dayState) {
 
         /* 현재 run, day 정보 */
         GameRun run = runState.getRun();
@@ -310,12 +310,13 @@ public class ActionService {
         List<Holding> holdings = holdingRepository.findHoldingsWithStock(run.getRunId());
 
         /* 현재 가격 조회 */
-        List<StockPrice> prices = stockPriceRepository
-                .findByRunRunIdAndBaseDateAndStockStockIdIn(
-                        run.getRunId(),
-                        currentDay,
-                        holdings.stream().map(h -> h.getStock().getStockId()).toList()
-                );
+        List<StockPrice> prices = holdings.isEmpty()
+                ? List.of()
+                : stockPriceRepository.findByRunRunIdAndBaseDateAndStockStockIdIn(
+                run.getRunId(),
+                currentDay,
+                holdings.stream().map(h -> h.getStock().getStockId()).toList()
+        );
 
         /* 가격 map 구성 */
         var priceMap = prices.stream()
@@ -343,35 +344,36 @@ public class ActionService {
         if (totalAsset.compareTo(BigDecimal.ZERO) < 0) {
 
             // 런 종료
-            run.setStatus(RunStatus.ENDED);
+            run.end();
             gameRunRepository.save(run);
 
             return new ActionResultResponse(
                     runState.getCurrentDayNo(),
                     dayState.getApRemaining(),
                     runState.getCashBalance(),
-                    "공부를 진행했습니다.",
+                    "게임이 종료되었습니다.",
                     4
             );
         }
 
         /* DayResult 저장 */
-        DayResult result = DayResult.builder()
-                .run(run)
-                .dayNo(currentDay)
-                .cashBalance(cash)
-                .stockValue(stockValue)
-                .totalAsset(totalAsset)
-                .build();
-
-        dayResultRepository.save(result);
+        dayResultRepository.findByRunRunIdAndDayNo(run.getRunId(), currentDay)
+                .orElseGet(() -> dayResultRepository.save(
+                        DayResult.builder()
+                                .run(run)
+                                .dayNo(currentDay)
+                                .cashBalance(cash)
+                                .stockValue(stockValue)
+                                .totalAsset(totalAsset)
+                                .build()
+                ));
 
 
         /* ENDING 확인 */
         if (currentDay == MAX_PLAY_DAY) {
 
             // 런 종료
-            run.setStatus(RunStatus.ENDED);
+            run.end();
             gameRunRepository.save(run);
 
             Integer totalStudy = runState.getTotalStudyCnt();
@@ -393,7 +395,7 @@ public class ActionService {
                     runState.getCurrentDayNo(),
                     dayState.getApRemaining(),
                     runState.getCashBalance(),
-                    "공부를 진행했습니다.",
+                    "게임이 종료되었습니다.",
                     endingType
             );
 

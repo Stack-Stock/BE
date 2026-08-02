@@ -2,6 +2,7 @@ package com.stacknstock.backend.domain.game.controller;
 
 import com.stacknstock.backend.domain.game.dto.DailyStartResponse;
 import com.stacknstock.backend.domain.game.service.DailyStartService;
+import com.stacknstock.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -60,6 +62,7 @@ public class DailyStartController {
             @ApiResponse(responseCode = "404", description = "게임 run을 찾을 수 없음")
     })
     public ResponseEntity<DailyStartResponse> getDailyStart(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
 
             @Parameter(
                     description = "게임 Run ID",
@@ -70,7 +73,7 @@ public class DailyStartController {
     ) {
 
         DailyStartResponse response =
-                dailyStartService.getDailyStart(runId);
+                dailyStartService.getDailyStart(userDetails.getUser().getUserId(), runId);
 
         return ResponseEntity.ok(response);
     }

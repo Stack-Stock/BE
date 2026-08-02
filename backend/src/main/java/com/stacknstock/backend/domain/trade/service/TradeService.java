@@ -4,6 +4,8 @@ import com.stacknstock.backend.domain.day.entity.Day;
 import com.stacknstock.backend.domain.day.repository.DayRepository;
 import com.stacknstock.backend.domain.game.entity.GameRun;
 import com.stacknstock.backend.domain.game.entity.RunState;
+import com.stacknstock.backend.domain.game.enums.RunStatus;
+import com.stacknstock.backend.domain.game.repository.GameRunRepository;
 import com.stacknstock.backend.domain.game.repository.RunStateRepository;
 import com.stacknstock.backend.domain.trade.entity.Holding;
 import com.stacknstock.backend.domain.trade.repository.HoldingRepository;
@@ -15,8 +17,6 @@ import com.stacknstock.backend.domain.trade.dto.TradeRequest;
 import com.stacknstock.backend.domain.trade.entity.Trade;
 import com.stacknstock.backend.domain.trade.enums.TradeSide;
 import com.stacknstock.backend.domain.trade.repository.TradeRepository;
-import com.stacknstock.backend.domain.user.entity.User;
-import com.stacknstock.backend.domain.user.repository.UserRepository;
 import com.stacknstock.backend.global.exception.BusinessException;
 import com.stacknstock.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -33,31 +33,29 @@ import java.util.stream.Collectors;
 public class TradeService {
 
     private final RunStateRepository runStateRepository;
+    private final GameRunRepository gameRunRepository;
     private final DayRepository dayRepository;
     private final StockPriceRepository stockPriceRepository;
     private final HoldingRepository holdingRepository;
     private final TradeRepository tradeRepository;
-    private final UserRepository userRepository;
 
     @Transactional
     public void executeTrade(Long userId, TradeRequest request) {
+        validateRequest(request);
 
         /*
          * ===============================
-         * 1. User / RunState 조회
+         * 1. RUNNING GameRun / RunState 조회
          * ===============================
          */
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        GameRun run = gameRunRepository.findByUserUserIdAndStatus(userId, RunStatus.RUNNING)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RUN_NOT_FOUND));
 
-        // 💡 [핵심 1] 59개 중복 조회 에러 해결: 가장 최근 게임 1개만 조회하도록 메서드 변경!
-        // 🚨 RunStateRepository 인터페이스에도 이 이름으로 메서드를 반드시 추가해야 합니다!
         RunState runState = runStateRepository
-                .findFirstByRunUserUserIdOrderByRunRunIdDesc(userId)
+                .findByRunRunId(run.getRunId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RUN_STATE_NOT_FOUND));
 
-        GameRun run = runState.getRun();
         int currentDayNo = runState.getCurrentDayNo();
 
         /*
@@ -255,5 +253,21 @@ public class TradeService {
          * ===============================
          */
         runStateRepository.save(runState);
+    }
+
+    private void validateRequest(TradeRequest request) {
+        if (request == null || request.orders() == null || request.orders().isEmpty()) {
+            throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
+        }
+
+        for (TradeOrderDto order : request.orders()) {
+            if (order == null
+                    || order.stockId() == null
+                    || order.side() == null
+                    || order.quantity() == null
+                    || order.quantity() <= 0) {
+                throw new BusinessException(ErrorCode.ACTION_NOT_ALLOWED);
+            }
+        }
     }
 }
